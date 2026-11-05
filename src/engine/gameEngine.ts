@@ -2,6 +2,7 @@ import { GameState, TwistEvent, TwistChoice, MarketSentiment } from '../types/ga
 import { BASE_TWIST_EVENTS } from '../data/baseEvents';
 import { expansionManager } from '../expansions/registry';
 import { soundFx } from '../audio/soundFx';
+import { processLifecycleTurnImpact, getLifeStage } from '../game/engine/lifecycleEngine';
 
 export interface AdvanceTurnResult {
   nextState: GameState;
@@ -159,6 +160,16 @@ export function advanceTurn(currentState: GameState): AdvanceTurnResult {
       state.character.happiness = Math.max(10, state.character.happiness - 10);
       state.character.creditScore = Math.max(450, state.character.creditScore - 20);
     }
+  }
+
+  // 10b. Process Lifecycle Priorities & Energy Impact (Career, Health, Leisure, XP)
+  const lifeImpact = processLifecycleTurnImpact(state, months);
+  if (lifeImpact.message) {
+    state.recentEvents.push({
+      month: state.month,
+      text: lifeImpact.message,
+      type: 'info',
+    });
   }
 
   // 11. Credit score updates

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { GameState } from './types/game';
+import { GameState, ProgressionSpeed, LifeFocus } from './types/game';
 import { createInitialGameState } from './engine/defaultState';
+import { setProgressionSpeed, setLifeFocus } from './game/engine/lifecycleEngine';
 import { GameCanvas } from './game/engine/GameCanvas';
 import { TitleScreen } from './game/ui/TitleScreen';
 import { OnboardingCutscene } from './game/ui/OnboardingCutscene';
@@ -56,8 +57,10 @@ export function App() {
     }
   };
 
-  const handleStartNewCareer = (archetypeId: string) => {
+  const handleStartNewCareer = (archetypeId: string, speed?: ProgressionSpeed, focus?: LifeFocus) => {
     const fresh = createInitialGameState(archetypeId);
+    if (speed) setProgressionSpeed(fresh, speed);
+    if (focus) setLifeFocus(fresh, focus);
     setState(fresh);
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(fresh));

@@ -23,7 +23,8 @@ import {
   Dog,
   ShoppingCart,
   Building2,
-  Percent
+  Percent,
+  Crown
 } from 'lucide-react';
 
 interface RPGBuildingInteriorProps {
@@ -32,6 +33,7 @@ interface RPGBuildingInteriorProps {
   onExit: () => void;
   onUpdateState: (newState: GameState) => void;
   onLaunchMinigame: (gameType: 'VAULT_SORTER' | 'DCA_WAVE' | 'GROCERY') => void;
+  onOpenLegacyModal?: () => void;
   onEquipVehicle?: (vehicle: 'FOOT' | 'BICYCLE' | 'CAR') => void;
   onEquipPet?: () => void;
   currentVehicle?: 'FOOT' | 'BICYCLE' | 'CAR';
@@ -44,6 +46,7 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
   onExit,
   onUpdateState,
   onLaunchMinigame,
+  onOpenLegacyModal,
   onEquipVehicle,
   onEquipPet,
   currentVehicle = 'FOOT',
@@ -718,8 +721,66 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
             </div>
           )}
 
+          {/* 9. TOWN HALL & CIVIC ARCHIVES */}
+          {building.type === 'TOWN_HALL' && (
+            <div className="space-y-5">
+              <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-800/40 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl">🏛️</span>
+                  <div>
+                    <h4 className="font-bold text-sm text-white">Prosperity Town Hall & Civic Archives</h4>
+                    <p className="text-xs text-slate-300 mt-1">
+                      "Inspect city land deeds, check civic tax assessments, and record your family estate in the Prosperity Hall of Fame."
+                    </p>
+                  </div>
+                </div>
+
+                {onOpenLegacyModal && (
+                  <button
+                    onClick={onOpenLegacyModal}
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 shrink-0 cursor-pointer"
+                  >
+                    <Crown className="w-4 h-4" />
+                    <span>ESTATE & NEW GAME+</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                  <h5 className="font-bold text-xs text-white">Prosperity Hall of Fame</h5>
+                  <p className="text-[11px] text-slate-400">
+                    Immortalize your founder stats, total career earnings, and final net worth across generations.
+                  </p>
+                  <button
+                    onClick={onOpenLegacyModal}
+                    className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs cursor-pointer mt-2"
+                  >
+                    View Generational Records
+                  </button>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                  <h5 className="font-bold text-xs text-white">Civic Tax Clearance</h5>
+                  <p className="text-[11px] text-slate-400">Verify property taxes and claim municipal standard deductions.</p>
+                  <button
+                    onClick={() => {
+                      soundFx.playCoin();
+                      state.cash += 200;
+                      onUpdateState({ ...state });
+                      showToast('🏛️ Filed municipal property tax exemption! +$200 credit.');
+                    }}
+                    className="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer mt-2"
+                  >
+                    Claim Municipal Credit (+$200)
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Fallback */}
-          {!['BANK', 'STOCK_EXCHANGE', 'AUTO_DEALER', 'RENTAL_PROPERTY', 'SUPERSTORE', 'HOME', 'CAREER_TOWER', 'CAFE'].includes(building.type) && (
+          {!['BANK', 'STOCK_EXCHANGE', 'AUTO_DEALER', 'RENTAL_PROPERTY', 'SUPERSTORE', 'HOME', 'CAREER_TOWER', 'CAFE', 'TOWN_HALL'].includes(building.type) && (
             <div className="p-8 text-center space-y-4">
               <div className="text-5xl">{building.icon}</div>
               <h3 className="text-xl font-bold text-white">{building.name}</h3>

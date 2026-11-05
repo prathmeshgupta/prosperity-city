@@ -20,7 +20,10 @@ import { VaultSorterMinigame } from '../minigames/VaultSorterMinigame';
 import { DCAWaveRiderMinigame } from '../minigames/DCAWaveRiderMinigame';
 import { SupermarketBasketMinigame } from '../minigames/SupermarketBasketMinigame';
 import { soundFx } from '../../audio/soundFx';
-import { getNetWorth } from '../../engine/gameEngine';
+import { advanceTurn, getNetWorth } from '../../engine/gameEngine';
+import { LifeFocusModal } from '../ui/LifeFocusModal';
+import { GenerationalLegacyModal } from '../ui/GenerationalLegacyModal';
+import { LifeStageHUD } from '../ui/LifeStageHUD';
 import confetti from 'canvas-confetti';
 import { 
   Compass, 
@@ -90,7 +93,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const [showInventory, setShowInventory] = useState<boolean>(false);
   const [showCampaignModal, setShowCampaignModal] = useState<boolean>(false);
   const [showFreedomBellModal, setShowFreedomBellModal] = useState<boolean>(false);
+  const [showLifeFocusModal, setShowLifeFocusModal] = useState<boolean>(false);
+  const [showLegacyModal, setShowLegacyModal] = useState<boolean>(false);
   const [activeMinigame, setActiveMinigame] = useState<'VAULT_SORTER' | 'DCA_WAVE' | 'GROCERY' | null>(null);
+
+  // Period / Turn advance handler
+  const handleAdvancePeriod = () => {
+    soundFx.playLevelUp();
+    const result = advanceTurn(state);
+    onUpdateState(result.nextState);
+    const speedLabel = state.progressionSpeed || (state.turnDurationMonths === 1 ? 'Month' : state.turnDurationMonths === 12 ? 'Year' : 'Quarter');
+    setBannerAlert(`⏩ Lived Next ${speedLabel}: Net Cashflow ${result.quarterCashflow.netCashflow >= 0 ? '+' : ''}$${result.quarterCashflow.netCashflow.toLocaleString()}, Age ${result.nextState.character.age}!`);
+    setTimeout(() => setBannerAlert(null), 5000);
+  };
 
   // Input keys
   const keysPressed = useRef<Record<string, boolean>>({});
@@ -178,6 +193,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (showInventory) setShowInventory(false);
         if (showCampaignModal) setShowCampaignModal(false);
         if (showFreedomBellModal) setShowFreedomBellModal(false);
+        if (showLifeFocusModal) setShowLifeFocusModal(false);
+        if (showLegacyModal) setShowLegacyModal(false);
         if (activeMinigame) setActiveMinigame(null);
       }
     };
@@ -193,7 +210,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [nearbyBuilding, nearbyNpc, enteredBuilding, talkingNpc, isNearFountain, showInventory, showCampaignModal, showFreedomBellModal, activeMinigame]);
+  }, [nearbyBuilding, nearbyNpc, enteredBuilding, talkingNpc, isNearFountain, showInventory, showCampaignModal, showFreedomBellModal, showLifeFocusModal, showLegacyModal, activeMinigame]);
 
   // Main 60 FPS Game Loop
   useEffect(() => {
@@ -213,7 +230,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       atmosphereRef.current.update(dt);
 
       // Only move if not inside a modal
-      if (!enteredBuilding && !talkingNpc && !activeMinigame && !showInventory && !showCampaignModal && !showFreedomBellModal) {
+      if (!enteredBuilding && !talkingNpc && !activeMinigame && !showInventory && !showCampaignModal && !showFreedomBellModal && !showLifeFocusModal && !showLegacyModal) {
         let dx = 0;
         let dy = 0;
 
@@ -372,7 +389,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     animationId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationId);
-  }, [enteredBuilding, talkingNpc, nearbyBuilding, nearbyNpc, npcs, collectibles, state, activeMinigame, showInventory, showCampaignModal, showFreedomBellModal, isNearFountain, targetBuilding]);
+  }, [enteredBuilding, talkingNpc, nearbyBuilding, nearbyNpc, npcs, collectibles, state, activeMinigame, showInventory, showCampaignModal, showFreedomBellModal, showLifeFocusModal, showLegacyModal, isNearFountain, targetBuilding]);
 
   // Click / Tap to walk on canvas
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -490,7 +507,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       {/* Floating Bottom Action Prompt Bar */}
       {(nearbyBuilding || nearbyNpc || isNearFountain) && !enteredBuilding && !talkingNpc && !activeMinigame && (
-        <div className="absolute bottom-6 inset-x-6 z-30 max-w-md mx-auto animate-in slide-in-from-bottom duration-200">
+        <div className="absolute bottom-20 inset-x-6 z-30 max-w-md mx-auto animate-in slide-in-from-bottom duration-200">
           <button
             onClick={() => {
               if (isNearFountain) {
@@ -516,8 +533,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         </div>
       )}
 
+      {/* Floating Life Stage, Priorities & Progression HUD (Bottom Center) */}
+      <LifeStageHUD
+        state={state}
+        onOpenFocusModal={() => setShowLifeFocusModal(true)}
+        onOpenLegacyModal={() => setShowLegacyModal(true)}
+        onAdvancePeriod={handleAdvancePeriod}
+      />
+
       {/* Bottom Right Inventory & Campaign Quick Bar */}
-      <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2 pointer-events-auto">
+      <div className="absolute bottom-20 right-6 z-20 flex items-center gap-2 pointer-events-auto">
         <button
           onClick={() => {
             soundFx.playClick();
@@ -584,6 +609,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           onExit={() => setEnteredBuilding(null)}
           onUpdateState={onUpdateState}
           onLaunchMinigame={(m) => setActiveMinigame(m)}
+          onOpenLegacyModal={() => setShowLegacyModal(true)}
           onEquipVehicle={(v) => setPlayer((p) => ({ ...p, vehicle: v }))}
           onEquipPet={() => setPlayer((p) => ({ ...p, hasPet: true }))}
           currentVehicle={player.vehicle}
@@ -667,6 +693,29 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         <FreedomBellModal
           state={state}
           onClose={() => setShowFreedomBellModal(false)}
+        />
+      )}
+
+      {/* Life Priorities & Progression Speed Modal */}
+      {showLifeFocusModal && (
+        <LifeFocusModal
+          state={state}
+          onUpdateState={onUpdateState}
+          onAdvancePeriod={handleAdvancePeriod}
+          onClose={() => setShowLifeFocusModal(false)}
+        />
+      )}
+
+      {/* Generational Legacy & New Game+ Modal */}
+      {showLegacyModal && (
+        <GenerationalLegacyModal
+          state={state}
+          onSuccessorCreated={(nextState) => {
+            onUpdateState(nextState);
+            setShowLegacyModal(false);
+            setBannerAlert(`👑 Generation ${nextState.generationalLegacy?.generation} has begun! Welcome, ${nextState.character.name}!`);
+          }}
+          onClose={() => setShowLegacyModal(false)}
         />
       )}
 

@@ -219,9 +219,47 @@ export interface GameState {
   // Active expansion packs
   activeExpansionIds: string[];
 
+  // Lifecycle, Priorities & Generational Engine
+  progressionSpeed?: ProgressionSpeed;
+  lifeStage?: LifeStage;
+  lifeFocus?: LifeFocus;
+  energyAllocation?: EnergyAllocation;
+  burnout?: number; // 0 - 100
+  generationalLegacy?: GenerationalLegacy;
+
   // Game status
   isGameOver: boolean;
   gameOverReason?: string;
+}
+
+export type ProgressionSpeed = 'MONTHLY' | 'QUARTERLY' | 'ANNUAL';
+export type LifeStage = 'SPARK' | 'CLIMB' | 'PEAK' | 'SUMMIT' | 'LEGACY';
+export type LifeFocus = 'BALANCED' | 'HUSTLE' | 'ZEN' | 'FIRE_SPRINTER';
+
+export interface EnergyAllocation {
+  career: number;   // 0 - 100%
+  health: number;   // 0 - 100%
+  leisure: number;  // 0 - 100%
+  education: number;// 0 - 100%
+}
+
+export interface GenerationalRecord {
+  generation: number;
+  name: string;
+  finalNetWorth: number;
+  finalAge: number;
+  careerTitle: string;
+  primaryPerk: string;
+  date: string;
+}
+
+export interface GenerationalLegacy {
+  generation: number;
+  ancestorName?: string;
+  familyMotto?: string;
+  hereditaryPerk?: string;
+  trustFundBalance?: number;
+  hallOfFame: GenerationalRecord[];
 }
 
 export interface ExpansionPack {

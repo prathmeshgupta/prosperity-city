@@ -14,11 +14,14 @@ import {
   ShieldAlert, 
   Zap, 
   ChevronRight,
-  UserCheck
+  UserCheck,
+  Clock,
+  Sliders
 } from 'lucide-react';
+import { ProgressionSpeed, LifeFocus } from '../../types/game';
 
 interface TitleScreenProps {
-  onStartGame: (archetypeId: string) => void;
+  onStartGame: (archetypeId: string, speed: ProgressionSpeed, focus: LifeFocus) => void;
   hasExistingSave?: boolean;
   onResumeGame?: () => void;
 }
@@ -80,13 +83,15 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onResumeGame,
 }) => {
   const [selectedArch, setSelectedArch] = useState<string>('archetype_fresh_grad');
+  const [selectedSpeed, setSelectedSpeed] = useState<ProgressionSpeed>('QUARTERLY');
+  const [selectedFocus, setSelectedFocus] = useState<LifeFocus>('BALANCED');
   const [showHowToPlay, setShowHowToPlay] = useState<boolean>(false);
 
   const activeArch = ARCHETYPES.find((a) => a.id === selectedArch) || ARCHETYPES[0];
 
   const handleStart = () => {
     soundFx.playLevelUp();
-    onStartGame(selectedArch);
+    onStartGame(selectedArch, selectedSpeed, selectedFocus);
   };
 
   return (
@@ -271,6 +276,67 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 flex items-start gap-2">
                   <Zap className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <span><strong>Perk:</strong> {activeArch.perk}</span>
+                </div>
+
+                {/* Progression Speed Customization */}
+                <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Progression Speed:</span>
+                    </span>
+                    <span className="font-mono text-cyan-400">{selectedSpeed}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'MONTHLY' as ProgressionSpeed, label: 'Monthly' },
+                      { id: 'QUARTERLY' as ProgressionSpeed, label: 'Quarterly' },
+                      { id: 'ANNUAL' as ProgressionSpeed, label: 'Annual' },
+                    ].map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => setSelectedSpeed(s.id)}
+                        className={`py-1.5 rounded-xl text-[10px] font-bold border transition-colors cursor-pointer ${
+                          selectedSpeed === s.id
+                            ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Starting Priority Focus */}
+                <div className="pt-1.5 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
+                    <span className="flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Life Priority Focus:</span>
+                    </span>
+                    <span className="font-mono text-emerald-400">{selectedFocus}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 text-[10px] font-bold">
+                    {[
+                      { id: 'BALANCED' as LifeFocus, label: '⚖️ Balanced' },
+                      { id: 'HUSTLE' as LifeFocus, label: '💼 Career Hustle' },
+                      { id: 'ZEN' as LifeFocus, label: '🌿 Zen Longevity' },
+                      { id: 'FIRE_SPRINTER' as LifeFocus, label: '🚀 FIRE Sprinter' },
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={() => setSelectedFocus(f.id)}
+                        className={`py-1.5 px-2 rounded-xl border transition-colors text-left cursor-pointer truncate ${
+                          selectedFocus === f.id
+                            ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
