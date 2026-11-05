@@ -16,7 +16,14 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
-  DollarSign
+  DollarSign,
+  Gamepad2,
+  Bike,
+  Heart,
+  Dog,
+  ShoppingCart,
+  Building2,
+  Percent
 } from 'lucide-react';
 
 interface RPGBuildingInteriorProps {
@@ -24,6 +31,11 @@ interface RPGBuildingInteriorProps {
   state: GameState;
   onExit: () => void;
   onUpdateState: (newState: GameState) => void;
+  onLaunchMinigame: (gameType: 'VAULT_SORTER' | 'DCA_WAVE' | 'GROCERY') => void;
+  onEquipVehicle?: (vehicle: 'FOOT' | 'BICYCLE' | 'CAR') => void;
+  onEquipPet?: () => void;
+  currentVehicle?: 'FOOT' | 'BICYCLE' | 'CAR';
+  hasPet?: boolean;
 }
 
 export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
@@ -31,8 +43,12 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
   state,
   onExit,
   onUpdateState,
+  onLaunchMinigame,
+  onEquipVehicle,
+  onEquipPet,
+  currentVehicle = 'FOOT',
+  hasPet = false,
 }) => {
-  const [activeTab, setActiveTab] = useState<string>('main');
   const [interactionToast, setInteractionToast] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -93,14 +109,25 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
           {/* 1. BANK INTERIOR */}
           {building.type === 'BANK' && (
             <div className="space-y-5">
-              <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-800/40 flex items-start gap-3">
-                <span className="text-3xl">🤵</span>
-                <div>
-                  <h4 className="font-bold text-sm text-white">Banker Sterling's Desk</h4>
-                  <p className="text-xs text-slate-300 mt-1">
-                    "Welcome! Your High-Yield Savings Vault pays <strong>4.5% APY</strong> compounded monthly. Keeping 3 to 6 months of expenses here protects you from market downturns!"
-                  </p>
+              <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-800/40 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl">🤵</span>
+                  <div>
+                    <h4 className="font-bold text-sm text-white">Banker Sterling's Desk</h4>
+                    <p className="text-xs text-slate-300 mt-1">
+                      "Welcome! Your High-Yield Savings Vault pays <strong>4.5% APY</strong> compounded monthly. Keeping 3 to 6 months of expenses here protects you from market downturns!"
+                    </p>
+                  </div>
                 </div>
+
+                {/* Minigame Launcher */}
+                <button
+                  onClick={() => onLaunchMinigame('VAULT_SORTER')}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 shrink-0 cursor-pointer"
+                >
+                  <Gamepad2 className="w-4 h-4" />
+                  <span>PLAY VAULT SORTER MINIGAME</span>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -110,7 +137,7 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
                     <span className="font-mono font-bold text-white">${Math.round(state.cash).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-400">High-Yield Vault:</span>
+                    <span className="text-slate-400">High-Yield Vault (4.5% APY):</span>
                     <span className="font-mono font-bold text-emerald-400">${Math.round(state.emergencyFund).toLocaleString()}</span>
                   </div>
 
@@ -203,14 +230,24 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
           {/* 2. STOCK EXCHANGE INTERIOR */}
           {building.type === 'STOCK_EXCHANGE' && (
             <div className="space-y-5">
-              <div className="p-4 rounded-2xl bg-cyan-950/20 border border-cyan-800/40 flex items-start gap-3">
-                <span className="text-3xl">🏛️</span>
-                <div>
-                  <h4 className="font-bold text-sm text-white">Floor Broker Terminal</h4>
-                  <p className="text-xs text-slate-300 mt-1">
-                    "Buy slices of the world's most profitable corporations! A single share of the S&P 500 holds 500 companies at once with an ultra-low 0.03% expense fee."
-                  </p>
+              <div className="p-4 rounded-2xl bg-cyan-950/20 border border-cyan-800/40 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl">🏛️</span>
+                  <div>
+                    <h4 className="font-bold text-sm text-white">Floor Broker Terminal</h4>
+                    <p className="text-xs text-slate-300 mt-1">
+                      "Buy slices of the world's most profitable corporations! Dollar-cost averaging index funds beats 90% of active stock pickers over a 10-year horizon."
+                    </p>
+                  </div>
                 </div>
+
+                <button
+                  onClick={() => onLaunchMinigame('DCA_WAVE')}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20 shrink-0 cursor-pointer"
+                >
+                  <Gamepad2 className="w-4 h-4" />
+                  <span>PLAY DCA WAVE RIDER</span>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -265,84 +302,321 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
               <div className="p-4 rounded-2xl bg-rose-950/20 border border-rose-800/40 flex items-start gap-3">
                 <span className="text-3xl">🚗</span>
                 <div>
-                  <h4 className="font-bold text-sm text-white">The Car Dealership Dilemma</h4>
+                  <h4 className="font-bold text-sm text-white">Prestige Motors Showroom</h4>
                   <p className="text-xs text-slate-300 mt-1">
-                    "Salesmen will try to lock you into a 6-year $650/month loan on a luxury sports car. Financing a depreciating asset is the #1 reason people struggle to save!"
+                    "Purchasing a vehicle increases your travel speed across Prosperity City! But beware financing luxury cars that steal your compounding capacity."
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-5 rounded-2xl bg-slate-900 border border-emerald-500/40 space-y-3">
-                  <div className="text-2xl">🚙</div>
-                  <h4 className="font-bold text-sm text-white">Reliable Used Japanese Commuter</h4>
-                  <p className="text-xs text-slate-400">
-                    High safety, 38 MPG, minimal maintenance, purchased in cash. Zero monthly car payments!
-                  </p>
-                  <div className="font-mono text-base font-bold text-emerald-400">
-                    $4,500 Cash (One-time)
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Commuter Bicycle */}
+                <div className="p-4 rounded-2xl bg-slate-900 border border-amber-500/40 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="text-2xl">🚲</div>
+                    <h4 className="font-bold text-xs text-white mt-1">City Commuter Bicycle</h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Boosts movement speed from 190 to <strong>280 px/sec</strong>. Zero gas, zero insurance!
+                    </p>
+                    <div className="font-mono text-sm font-bold text-amber-400 mt-2">$250 Cash</div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (state.cash < 250) {
+                        showToast('Need $250 cash for bicycle');
+                        return;
+                      }
+                      soundFx.playCoin();
+                      state.cash -= 250;
+                      onEquipVehicle?.('BICYCLE');
+                      onUpdateState({ ...state });
+                      showToast('🚲 Equipped Commuter Bicycle! Speed increased to 280 px/s.');
+                    }}
+                    className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs cursor-pointer"
+                  >
+                    {currentVehicle === 'BICYCLE' ? 'Already Equipped' : 'Buy Bike ($250)'}
+                  </button>
+                </div>
+
+                {/* Reliable Used Car */}
+                <div className="p-4 rounded-2xl bg-slate-900 border border-emerald-500/40 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="text-2xl">🚙</div>
+                    <h4 className="font-bold text-xs text-white mt-1">Reliable Used Japanese Sedan</h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Boosts travel speed to <strong>410 px/sec</strong>! Reliable, cash-bought, zero debt.
+                    </p>
+                    <div className="font-mono text-sm font-bold text-emerald-400 mt-2">$4,500 Cash</div>
                   </div>
                   <button
                     onClick={() => {
                       if (state.cash < 4500) {
-                        showToast('Insufficient cash: save up $4,500 for the cash car');
+                        showToast('Insufficient cash: save up $4,500 for cash car');
                         return;
                       }
                       soundFx.playLevelUp();
                       state.cash -= 4500;
-                      state.character.happiness = Math.min(100, state.character.happiness + 8);
+                      onEquipVehicle?.('CAR');
                       onUpdateState({ ...state });
-                      showToast('🚗 Bought reliable commuter in cash! Zero debt payments forever.');
+                      showToast('🚗 Equipped Reliable Sedan! Speed increased to 410 px/s.');
                     }}
-                    className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer"
+                    className="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer"
                   >
-                    Buy in Cash ($4,500)
+                    {currentVehicle === 'CAR' ? 'Already Driving' : 'Buy Cash ($4,500)'}
                   </button>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-slate-900 border border-rose-500/40 space-y-3">
-                  <div className="text-2xl">🏎️</div>
-                  <h4 className="font-bold text-sm text-white">Shiny Flashy Sports Sedan</h4>
-                  <p className="text-xs text-slate-400">
-                    Depreciates 20% immediately. Binds you to 60 months of high payments and expensive insurance.
-                  </p>
-                  <div className="font-mono text-base font-bold text-rose-400">
-                    $620 / month for 5 Years ($37,000 total)
+                {/* Sports Car Debt Trap */}
+                <div className="p-4 rounded-2xl bg-slate-900 border border-rose-500/40 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="text-2xl">🏎️</div>
+                    <h4 className="font-bold text-xs text-white mt-1">Luxury Sports Coupe (Debt Trap)</h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      60 months of $620 payments + 8% interest. Locks away $37k from investments!
+                    </p>
+                    <div className="font-mono text-sm font-bold text-rose-400 mt-2">$620/mo (5-Yr Loan)</div>
                   </div>
                   <button
                     onClick={() => {
                       soundFx.playBadTwist();
                       state.debts.push({
                         id: `debt_car_${Date.now()}`,
-                        name: 'Luxury Sports Car 5-Year Loan',
+                        name: 'Sports Coupe 5-Yr Loan',
                         category: 'AUTO_LOAN',
                         principal: 32000,
                         interestRate: 0.08,
                         minimumMonthlyPayment: 620,
-                        educationalTip: 'Auto debt steals thousands from monthly investment capacity.',
+                        educationalTip: 'Auto debt deprives your compounding engine.',
                       });
-                      state.character.happiness = Math.min(100, state.character.happiness + 5);
+                      onEquipVehicle?.('CAR');
                       onUpdateState({ ...state });
-                      showToast('Signed 5-year sports car loan! Added $620/mo liability.');
+                      showToast('⚠️ Signed 5-year auto loan! Added $620/mo liability.');
                     }}
-                    className="w-full py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs cursor-pointer"
+                    className="w-full py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs cursor-pointer"
                   >
-                    Sign 5-Year Loan ($32k debt)
+                    Sign 5-Yr Loan ($32k)
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* 4. CAREER TOWER INTERIOR */}
+          {/* 4. REAL ESTATE / TURNKEY DUPLEX */}
+          {building.type === 'RENTAL_PROPERTY' && (
+            <div className="space-y-5">
+              <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-800/40 flex items-start gap-3">
+                <span className="text-3xl">🏘️</span>
+                <div>
+                  <h4 className="font-bold text-sm text-white">Suburban Turnkey Duplex Opportunity</h4>
+                  <p className="text-xs text-slate-300 mt-1">
+                    "Real estate provides 4 wealth pillars: cashflow rent checks, loan paydown, tax depreciation, and long-term appreciation."
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center font-mono">
+                  <div className="p-3 rounded-xl bg-slate-950">
+                    <span className="text-[10px] text-slate-400 uppercase block">Property Price</span>
+                    <span className="font-bold text-white text-sm">$320,000</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950">
+                    <span className="text-[10px] text-slate-400 uppercase block">20% Down Payment</span>
+                    <span className="font-bold text-emerald-400 text-sm">$64,000</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950">
+                    <span className="text-[10px] text-slate-400 uppercase block">Monthly Rent</span>
+                    <span className="font-bold text-cyan-400 text-sm">+$2,400/mo</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950">
+                    <span className="text-[10px] text-slate-400 uppercase block">Ownership Status</span>
+                    <span className="font-bold text-amber-400 text-sm">
+                      {building.isOwnedByPlayer ? 'OWNED' : 'FOR SALE'}
+                    </span>
+                  </div>
+                </div>
+
+                {building.isOwnedByPlayer ? (
+                  <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+                    🎉 You own this turnkey duplex! It generates $2,400/month in passive rental income directly into your cashflow.
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (state.cash < 64000) {
+                        showToast('Need $64,000 cash for 20% down payment');
+                        return;
+                      }
+                      soundFx.playLevelUp();
+                      state.cash -= 64000;
+                      building.isOwnedByPlayer = true;
+                      state.debts.push({
+                        id: 'debt_duplex_mortgage',
+                        name: '30-Yr Fixed Duplex Mortgage',
+                        category: 'MORTGAGE',
+                        principal: 256000,
+                        interestRate: 0.065,
+                        minimumMonthlyPayment: 1618,
+                        educationalTip: 'Tenants pay your mortgage while you keep the net spread!',
+                      });
+                      onUpdateState({ ...state });
+                      showToast('🎉 Purchased Suburban Duplex! Collecting $2,400/month rent!');
+                    }}
+                    className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs cursor-pointer shadow-lg"
+                  >
+                    PUT 20% DOWN ($64,000) & BUY DUPLEX
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 5. MEGAMART LIFESTYLE CENTER */}
+          {building.type === 'SUPERSTORE' && (
+            <div className="space-y-5">
+              <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-800/40 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl">🛒</span>
+                  <div>
+                    <h4 className="font-bold text-sm text-white">MegaMart Lifestyle Center</h4>
+                    <p className="text-xs text-slate-300 mt-1">
+                      "Watch out for unit pricing tricks and lifestyle subscription creep! Always calculate $/oz instead of package sizes."
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => onLaunchMinigame('GROCERY')}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 shrink-0 cursor-pointer"
+                >
+                  <Gamepad2 className="w-4 h-4" />
+                  <span>PLAY SMART GROCERY DUEL</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                  <h5 className="font-bold text-xs text-white">Monthly Groceries (Frugal Bulk)</h5>
+                  <p className="text-[11px] text-slate-400">Restock fresh produce, oats, and healthy staples.</p>
+                  <button
+                    onClick={() => {
+                      if (state.cash < 180) {
+                        showToast('Insufficient cash for groceries');
+                        return;
+                      }
+                      soundFx.playCoin();
+                      state.cash -= 180;
+                      state.character.health = Math.min(100, state.character.health + 5);
+                      onUpdateState({ ...state });
+                      showToast('🛒 Restocked nutritious bulk groceries for $180! Health +5%');
+                    }}
+                    className="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer mt-2"
+                  >
+                    Buy Bulk Groceries ($180)
+                  </button>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                  <h5 className="font-bold text-xs text-white">Cancel Unused Subscriptions</h5>
+                  <p className="text-[11px] text-slate-400">Cancel streaming apps and gym memberships you haven't used in 90 days.</p>
+                  <button
+                    onClick={() => {
+                      soundFx.playLevelUp();
+                      state.cash += 85;
+                      onUpdateState({ ...state });
+                      showToast('✂️ Audited subscriptions! Saved $85 recurring monthly cashflow!');
+                    }}
+                    className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs cursor-pointer mt-2"
+                  >
+                    Audit & Cancel Subscriptions (Save $85)
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 6. STARTER STUDIO HOME & PET ADOPTION */}
+          {building.type === 'HOME' && (
+            <div className="space-y-5">
+              <div className="p-4 rounded-2xl bg-pink-950/20 border border-pink-800/40 flex items-start gap-3">
+                <span className="text-3xl">🏡</span>
+                <div>
+                  <h4 className="font-bold text-sm text-white">Your Starter Studio Sanctuary</h4>
+                  <p className="text-xs text-slate-300 mt-1">
+                    "Rest up to restore happiness and health. You can also adopt the loyal Compound Hound 🐕 to accompany you on your financial journey!"
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between">
+                  <div>
+                    <h5 className="font-bold text-xs text-white flex items-center gap-1.5">
+                      <Heart className="w-4 h-4 text-rose-400" />
+                      <span>Rest & Sleep Sanctuary</span>
+                    </h5>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Full 8 hours of sleep resets your stamina, clears fatigue, and boosts health.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      soundFx.playLevelUp();
+                      state.character.happiness = Math.min(100, state.character.happiness + 15);
+                      state.character.health = Math.min(100, state.character.health + 15);
+                      onUpdateState({ ...state });
+                      showToast('✨ Slept soundly: +15% Happiness & Health!');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs cursor-pointer"
+                  >
+                    Take a Rest Day (+15% Happiness & Health)
+                  </button>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between">
+                  <div>
+                    <h5 className="font-bold text-xs text-white flex items-center gap-1.5">
+                      <Dog className="w-4 h-4 text-amber-400" />
+                      <span>Adopt Compound Hound 🐕</span>
+                    </h5>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      A golden retriever who loves compounding dividends! Trots behind you on the city map.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (hasPet) {
+                        showToast('Compound Hound is already trotting beside you!');
+                        return;
+                      }
+                      if (state.cash < 150) {
+                        showToast('Need $150 to adopt pet');
+                        return;
+                      }
+                      soundFx.playLevelUp();
+                      state.cash -= 150;
+                      onEquipPet?.();
+                      onUpdateState({ ...state });
+                      showToast('🐕 Adopted Compound Hound! He now follows you on the city map!');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs cursor-pointer"
+                  >
+                    {hasPet ? '🐕 Hound Following You' : 'Adopt Hound ($150)'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 7. CAREER TOWER */}
           {building.type === 'CAREER_TOWER' && (
             <div className="space-y-5">
               <div className="p-4 rounded-2xl bg-blue-950/20 border border-blue-800/40 flex items-start gap-3">
                 <span className="text-3xl">🏢</span>
                 <div>
-                  <h4 className="font-bold text-sm text-white">Human Capital Headquarters</h4>
+                  <h4 className="font-bold text-sm text-white">Apex Career Tower</h4>
                   <p className="text-xs text-slate-300 mt-1">
-                    "Your primary income is your greatest wealth generation engine. Completing workplace achievements and upskilling permanently raises your compounding baseline."
+                    "Clock in for work shifts to collect salary wages, take high-visibility initiatives, and request promotions!"
                   </p>
                 </div>
               </div>
@@ -360,116 +634,92 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
                   </span>
                 </div>
 
-                <div className="pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      soundFx.playCoin();
+                      const monthlyPay = Math.round(state.character.annualSalary / 12);
+                      state.cash += monthlyPay;
+                      state.totalXP += 30;
+                      onUpdateState({ ...state });
+                      showToast(`💼 Clocked in monthly shift! Collected +$${monthlyPay.toLocaleString()} paycheck!`);
+                    }}
+                    className="py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs cursor-pointer"
+                  >
+                    Clock In Monthly Shift (+${Math.round(state.character.annualSalary / 12).toLocaleString()})
+                  </button>
+
                   <button
                     onClick={() => {
                       soundFx.playLevelUp();
-                      state.character.annualSalary += 3500;
-                      state.character.happiness = Math.min(100, state.character.happiness + 6);
+                      state.character.annualSalary += 4000;
+                      state.totalXP += 50;
                       onUpdateState({ ...state });
-                      showToast('🎉 Negotiated workplace promotion! +$3,500/year salary bump.');
+                      showToast('🎉 Promoted! Salary permanently raised +$4,000/yr!');
                     }}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-bold text-xs shadow-lg transition-all cursor-pointer"
+                    className="py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs cursor-pointer"
                   >
-                    Deliver High-Impact Project & Claim Promotion (+$3,500/yr)
+                    Deliver High-Impact Initiative (+4k/yr Raise)
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* 5. UNIVERSITY INTERIOR */}
-          {building.type === 'UNIVERSITY' && (
+          {/* 8. THE DAILY GRIND CAFE */}
+          {building.type === 'CAFE' && (
             <div className="space-y-5">
-              <div className="p-4 rounded-2xl bg-purple-950/20 border border-purple-800/40 flex items-start gap-3">
-                <span className="text-3xl">🎓</span>
+              <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-800/40 flex items-start gap-3">
+                <span className="text-3xl">☕</span>
                 <div>
-                  <h4 className="font-bold text-sm text-white">FinTwist University Lecture Hall</h4>
+                  <h4 className="font-bold text-sm text-white">The Daily Grind Cafe</h4>
                   <p className="text-xs text-slate-300 mt-1">
-                    "Knowledge is the only asset that cannot be stolen from you. Test your intuition on the Rule of 72!"
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 text-xs">
-                <h4 className="font-bold text-sm text-white">Mini-Quiz Challenge:</h4>
-                <p className="text-slate-300">
-                  If an investment returns 8% per year, how many years does it take to double according to the Rule of 72?
-                </p>
-
-                <div className="grid grid-cols-2 gap-2">
-                  {['6 years', '9 years', '12 years', '18 years'].map((ans, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        if (ans === '9 years') {
-                          soundFx.playLevelUp();
-                          state.cash += 150;
-                          state.totalXP += 75;
-                          onUpdateState({ ...state });
-                          showToast('🎉 Correct! 72 ÷ 8 = 9 Years! Earned $150 scholarship + 75 XP!');
-                        } else {
-                          soundFx.playBadTwist();
-                          showToast('Not quite! Remember: 72 ÷ Return Rate % = Doubling Years.');
-                        }
-                      }}
-                      className="p-2.5 rounded-xl bg-slate-950 hover:bg-purple-900/40 border border-slate-800 hover:border-purple-500 text-slate-200 font-semibold cursor-pointer text-left"
-                    >
-                      {ans}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 6. HOME SWEET HOME INTERIOR */}
-          {building.type === 'HOME' && (
-            <div className="space-y-5">
-              <div className="p-4 rounded-2xl bg-pink-950/20 border border-pink-800/40 flex items-start gap-3">
-                <span className="text-3xl">🏡</span>
-                <div>
-                  <h4 className="font-bold text-sm text-white">Your Home & Rest Sanctuary</h4>
-                  <p className="text-xs text-slate-300 mt-1">
-                    "Take a deep breath. Review your financial journey, rest up to restore happiness and energy, and prepare for the next chapter."
+                    "Network with local freelancers, grab fresh espresso, and pick up weekend consulting contracts."
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 text-xs">
-                  <span className="text-slate-400 block">Personal Balance Snapshot</span>
-                  <div className="font-mono text-xl font-bold text-white">
-                    Age {state.character.age} • Year {Math.floor((state.month - 1) / 12) + 1}
-                  </div>
-                  <div className="text-emerald-400 font-bold">
-                    Happiness: {state.character.happiness}% • Health: {state.character.health}%
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between">
-                  <span className="text-xs text-slate-300 font-semibold">
-                    Rest & Recharge
-                  </span>
+                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                  <h5 className="font-bold text-xs text-white">Artisanal Espresso</h5>
+                  <p className="text-[11px] text-slate-400">A rich double shot of dark roast. Restores vitality.</p>
                   <button
                     onClick={() => {
-                      soundFx.playLevelUp();
-                      state.character.happiness = Math.min(100, state.character.happiness + 10);
-                      state.character.health = Math.min(100, state.character.health + 10);
+                      if (state.cash < 5) return;
+                      soundFx.playClick();
+                      state.cash -= 5;
+                      state.character.happiness = Math.min(100, state.character.happiness + 4);
                       onUpdateState({ ...state });
-                      showToast('✨ Took a good night’s rest: +10% Happiness & Health!');
+                      showToast('☕ Sipped a delicious espresso! Happiness +4%');
                     }}
-                    className="w-full py-2 rounded-xl bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs cursor-pointer mt-2"
+                    className="w-full py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer mt-2"
                   >
-                    Take a Rest Day (+Happiness & Health)
+                    Drink Espresso ($5)
+                  </button>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                  <h5 className="font-bold text-xs text-white">Weekend Freelancing Gig</h5>
+                  <p className="text-[11px] text-slate-400">Build a landing page or audit a spreadsheet for a client.</p>
+                  <button
+                    onClick={() => {
+                      soundFx.playCoin();
+                      state.cash += 350;
+                      state.totalXP += 35;
+                      onUpdateState({ ...state });
+                      showToast('💻 Finished weekend gig! Earned +$350 cash + 35 XP!');
+                    }}
+                    className="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer mt-2"
+                  >
+                    Complete Freelance Gig (+$350)
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* 7. FALLBACK / OTHER BUILDINGS */}
-          {!['BANK', 'STOCK_EXCHANGE', 'AUTO_DEALER', 'CAREER_TOWER', 'UNIVERSITY', 'HOME'].includes(building.type) && (
+          {/* Fallback */}
+          {!['BANK', 'STOCK_EXCHANGE', 'AUTO_DEALER', 'RENTAL_PROPERTY', 'SUPERSTORE', 'HOME', 'CAREER_TOWER', 'CAFE'].includes(building.type) && (
             <div className="p-8 text-center space-y-4">
               <div className="text-5xl">{building.icon}</div>
               <h3 className="text-xl font-bold text-white">{building.name}</h3>
@@ -481,7 +731,7 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
                   soundFx.playCoin();
                   state.cash += 50;
                   onUpdateState({ ...state });
-                  showToast(`Interacted with ${building.name}! +$50 discovered.`);
+                  showToast(`Interacted with ${building.name}! Discovered +$50 bonus!`);
                 }}
                 className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer"
               >

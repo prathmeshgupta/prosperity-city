@@ -14,6 +14,8 @@ import { QuestTrackerHUD } from '../ui/QuestTrackerHUD';
 import { InventoryModal } from '../ui/InventoryModal';
 import { CampaignStoryModal } from '../ui/CampaignStoryModal';
 import { FreedomBellModal } from '../ui/FreedomBellModal';
+import { GuidedCompass } from '../ui/GuidedCompass';
+import { MiniMapRadar } from '../ui/MiniMapRadar';
 import { VaultSorterMinigame } from '../minigames/VaultSorterMinigame';
 import { DCAWaveRiderMinigame } from '../minigames/DCAWaveRiderMinigame';
 import { SupermarketBasketMinigame } from '../minigames/SupermarketBasketMinigame';
@@ -32,7 +34,9 @@ import {
   Moon,
   CloudRain,
   Trophy,
-  Bell
+  Bell,
+  Heart,
+  Zap
 } from 'lucide-react';
 
 interface GameCanvasProps {
@@ -48,19 +52,21 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Atmosphere engine instance
+  // Atmosphere engine instance (day/night cycle & weather)
   const atmosphereRef = useRef<WorldAtmosphere>(new WorldAtmosphere());
 
-  // Player state in world px (Starts in Town Plaza)
+  // Player state in world px (Starts at Town Plaza at tileX 30, tileY 21)
   const [player, setPlayer] = useState<PlayerEntity>({
-    x: 24.5 * TILE_SIZE,
-    y: 17.5 * TILE_SIZE,
+    x: 30 * TILE_SIZE,
+    y: 21 * TILE_SIZE,
     direction: 'down',
     isMoving: false,
     walkFrame: 0,
     name: state.character.name,
     avatarEmoji: state.character.avatar,
     shirtColor: '#10b981',
+    vehicle: 'FOOT',
+    hasPet: false,
   });
 
   const [npcs, setNpcs] = useState<NPC[]>(INITIAL_NPCS);
@@ -69,13 +75,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const [chapters, setChapters] = useState<ChapterQuest[]>(CAMPAIGN_CHAPTERS);
   const [activeChapterIdx, setActiveChapterIdx] = useState<number>(0);
 
+  // Custom Waypoint override (if user selected one)
+  const [customWaypoint, setCustomWaypoint] = useState<BuildingEntrance | null>(null);
+
   // Active overlays & Modals
   const [enteredBuilding, setEnteredBuilding] = useState<BuildingEntrance | null>(null);
   const [talkingNpc, setTalkingNpc] = useState<NPC | null>(null);
   const [nearbyBuilding, setNearbyBuilding] = useState<BuildingEntrance | null>(null);
   const [nearbyNpc, setNearbyNpc] = useState<NPC | null>(null);
   const [isNearFountain, setIsNearFountain] = useState<boolean>(false);
-  const [bannerAlert, setBannerAlert] = useState<string | null>('Explore Prosperity City: Visit the Bank, Exchange, or talk to NPCs!');
+  const [bannerAlert, setBannerAlert] = useState<string | null>('Follow your Guided Compass at the top to reach your first goal!');
 
   // Modals
   const [showInventory, setShowInventory] = useState<boolean>(false);
@@ -85,6 +94,27 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
   // Input keys
   const keysPressed = useRef<Record<string, boolean>>({});
+
+  // Compute Active Quest Destination Building
+  const currentChapter = chapters[activeChapterIdx];
+  const targetBuilding: BuildingEntrance | null = customWaypoint || (() => {
+    if (!currentChapter) return null;
+    switch (currentChapter.chapter) {
+      case 1:
+        return BUILDINGS.find((b) => b.id === 'bldg_career_tower') || null;
+      case 2:
+      case 3:
+        return BUILDINGS.find((b) => b.id === 'bldg_bank') || null;
+      case 4:
+        return BUILDINGS.find((b) => b.id === 'bldg_stock_exchange') || null;
+      case 5:
+        return BUILDINGS.find((b) => b.id === 'bldg_duplex_property') || null;
+      case 6:
+        return BUILDINGS.find((b) => b.id === 'bldg_town_hall') || null;
+      default:
+        return BUILDINGS.find((b) => b.id === 'bldg_bank') || null;
+    }
+  })();
 
   // Check Quest Objectives on state changes
   useEffect(() => {
@@ -158,6 +188,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
@@ -181,7 +212,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       // Update atmosphere day/night cycle & weather
       atmosphereRef.current.update(dt);
 
-      // Only move if not in modal
+      // Only move if not inside a modal
       if (!enteredBuilding && !talkingNpc && !activeMinigame && !showInventory && !showCampaignModal && !showFreedomBellModal) {
         let dx = 0;
         let dy = 0;
@@ -196,11 +227,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           dy *= 0.7071;
         }
 
-        const speed = 190; // px per second
+        // Speed modified by vehicle: Foot = 190, Bicycle = 280, Car = 410 px/s
+        let speed = 190;
+        if (player.vehicle === 'BICYCLE') speed = 280;
+        if (player.vehicle === 'CAR') speed = 410;
+
         let nextX = player.x + dx * speed * dt;
         let nextY = player.y + dy * speed * dt;
 
-        // Boundaries
+        // Boundaries of 64x50 map
         nextX = Math.max(TILE_SIZE * 2, Math.min(MAP_WIDTH * TILE_SIZE - TILE_SIZE * 2, nextX));
         nextY = Math.max(TILE_SIZE * 2, Math.min(MAP_HEIGHT * TILE_SIZE - TILE_SIZE * 2, nextY));
 
@@ -217,14 +252,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         player.direction = direction;
         player.isMoving = isMoving;
         if (isMoving) {
-          player.walkFrame += dt * 10;
+          player.walkFrame += dt * (player.vehicle === 'CAR' ? 6 : 10);
         }
 
         // Check Plaza Fountain proximity for Freedom Bell
-        const fountainX = 24.5 * TILE_SIZE;
-        const fountainY = 17.5 * TILE_SIZE;
+        const fountainX = 30 * TILE_SIZE;
+        const fountainY = 20 * TILE_SIZE;
         const distFountain = Math.hypot(player.x - fountainX, player.y - fountainY);
-        setIsNearFountain(distFountain < 50);
+        setIsNearFountain(distFountain < 65);
 
         // Check building proximity
         let foundBldg: BuildingEntrance | null = null;
@@ -232,7 +267,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           const doorWorldX = bldg.tileX * TILE_SIZE;
           const doorWorldY = bldg.tileY * TILE_SIZE;
           const dist = Math.hypot(player.x - doorWorldX, player.y - doorWorldY);
-          if (dist < 60) {
+          if (dist < 65) {
             foundBldg = bldg;
             break;
           }
@@ -254,7 +289,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         for (const item of collectibles) {
           if (!item.isCollected) {
             const dist = Math.hypot(player.x - item.x, player.y - item.y);
-            if (dist < 30) {
+            if (dist < 32) {
               item.isCollected = true;
               soundFx.playCoin();
               confetti({ particleCount: 35, spread: 45, origin: { y: 0.8 } });
@@ -293,7 +328,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const w = canvas.width;
       const h = canvas.height;
 
-      renderWorldMap(ctx, player.x, player.y, w, h, nearbyBuilding ? nearbyBuilding.id : null);
+      renderWorldMap(
+        ctx,
+        player.x,
+        player.y,
+        w,
+        h,
+        nearbyBuilding ? nearbyBuilding.id : null,
+        targetBuilding ? targetBuilding.id : null
+      );
+
       renderEntities(
         ctx,
         player,
@@ -306,11 +350,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         nearbyNpc ? nearbyNpc.id : null
       );
 
-      // Render Day/Night Atmosphere & Light Sources (Streetlamps, doorways)
+      // Render Day/Night Atmosphere & Light Sources
       const lightSources = BUILDINGS.map((b) => ({
         x: b.tileX * TILE_SIZE - player.x + w / 2,
         y: b.tileY * TILE_SIZE - player.y + h / 2,
-        radius: 110,
+        radius: 120,
         color: b.color,
       }));
 
@@ -328,7 +372,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     animationId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationId);
-  }, [enteredBuilding, talkingNpc, nearbyBuilding, nearbyNpc, npcs, collectibles, state, activeMinigame, showInventory, showCampaignModal, showFreedomBellModal, isNearFountain]);
+  }, [enteredBuilding, talkingNpc, nearbyBuilding, nearbyNpc, npcs, collectibles, state, activeMinigame, showInventory, showCampaignModal, showFreedomBellModal, isNearFountain, targetBuilding]);
 
   // Click / Tap to walk on canvas
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -360,8 +404,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const dy = worldClickY - player.y;
     const dist = Math.hypot(dx, dy);
     if (dist > 10) {
-      player.x += (dx / dist) * Math.min(dist, 90);
-      player.y += (dy / dist) * Math.min(dist, 90);
+      player.x += (dx / dist) * Math.min(dist, 100);
+      player.y += (dy / dist) * Math.min(dist, 100);
       player.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
     }
   };
@@ -371,81 +415,55 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   return (
     <div className="relative w-full h-[88vh] rounded-3xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 flex flex-col select-none">
       
-      {/* Top Game HUD Bar */}
-      <div className="absolute top-4 inset-x-4 z-30 flex items-center justify-between gap-3 pointer-events-none">
-        
-        {/* Left: Player Mini Vitals */}
-        <div className="pointer-events-auto flex items-center gap-3 bg-slate-950/85 backdrop-blur-md px-4 py-2 rounded-2xl border border-slate-700/80 shadow-xl">
+      {/* 1. Guided Objective Compass HUD (Top-Center Floating Bar) */}
+      <GuidedCompass
+        playerX={player.x}
+        playerY={player.y}
+        targetBuilding={targetBuilding}
+        chapterTitle={`Ch. ${currentChapter?.chapter || 1}: ${currentChapter?.title || 'Prosperity'}`}
+        objectiveText={currentChapter?.objectives[0]?.description || 'Explore the Metropolis'}
+        onSelectWaypoint={(b) => setCustomWaypoint(b)}
+      />
+
+      {/* 2. Interactive Metropolis Mini-Map Radar (Top-Right HUD) */}
+      <MiniMapRadar
+        playerX={player.x}
+        playerY={player.y}
+        playerDirection={player.direction}
+        targetBuilding={targetBuilding}
+        onSelectWaypoint={(b) => setCustomWaypoint(b)}
+      />
+
+      {/* 3. Top-Left Player Vitals & Status */}
+      <div className="absolute top-3 left-3 z-30 pointer-events-none">
+        <div className="pointer-events-auto flex items-center gap-3 bg-slate-950/85 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-700/80 shadow-xl">
           <div className="text-2xl">{state.character.avatar}</div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-extrabold text-sm text-white">{state.character.name}</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold">
-                Age {state.character.age}
+              <span className="font-extrabold text-xs text-white">{state.character.name}</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/30">
+                {player.vehicle !== 'FOOT' ? `🚗 ${player.vehicle}` : '👟 Walking'}
               </span>
+              {player.hasPet && (
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30">
+                  🐕 Hound
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-3 text-xs mt-0.5 font-mono">
+            <div className="flex items-center gap-2.5 text-xs mt-0.5 font-mono">
               <span className="text-emerald-400 font-bold">
-                Cash: ${Math.round(state.cash).toLocaleString()}
+                ${Math.round(state.cash).toLocaleString()}
               </span>
+              <span className="text-slate-500">•</span>
               <span className="text-purple-300 font-bold">
-                Net Worth: ${netWorth.toLocaleString()}
+                Net: ${netWorth.toLocaleString()}
               </span>
             </div>
           </div>
         </div>
-
-        {/* Center: Weather & Time Pill */}
-        <div className="pointer-events-auto hidden md:flex items-center gap-2 bg-slate-950/85 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-slate-700/80 text-xs text-slate-300 font-mono">
-          {atmosphereRef.current.timeOfDay === 'NIGHT' ? (
-            <Moon className="w-3.5 h-3.5 text-cyan-400" />
-          ) : (
-            <Sun className="w-3.5 h-3.5 text-amber-400" />
-          )}
-          <span className="font-bold text-white">{atmosphereRef.current.timeOfDay}</span>
-          <span>•</span>
-          <button
-            onClick={() => {
-              const next = atmosphereRef.current.weather === 'SUNNY' ? 'RAINY' : atmosphereRef.current.weather === 'RAINY' ? 'PETAL_FALL' : 'SUNNY';
-              atmosphereRef.current.setWeather(next);
-              soundFx.playClick();
-            }}
-            className="text-slate-400 hover:text-white"
-            title="Toggle Weather"
-          >
-            {atmosphereRef.current.weather}
-          </button>
-        </div>
-
-        {/* Right: Backpack & Campaign Buttons */}
-        <div className="pointer-events-auto flex items-center gap-2">
-          <button
-            onClick={() => {
-              soundFx.playClick();
-              setShowInventory(true);
-            }}
-            className="px-3.5 py-2 rounded-2xl bg-slate-950/85 backdrop-blur-md text-slate-300 hover:text-white border border-slate-700/80 text-xs font-bold shadow-xl flex items-center gap-1.5 cursor-pointer"
-            title="Open Backpack [I]"
-          >
-            <Backpack className="w-4 h-4 text-emerald-400" />
-            <span>Bag [I]</span>
-          </button>
-
-          <button
-            onClick={() => {
-              soundFx.playClick();
-              setShowCampaignModal(true);
-            }}
-            className="px-3.5 py-2 rounded-2xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 text-xs font-bold shadow-xl flex items-center gap-1.5 cursor-pointer backdrop-blur-md"
-          >
-            <Trophy className="w-4 h-4 text-amber-400" />
-            <span>Quests</span>
-          </button>
-        </div>
-
       </div>
 
-      {/* Floating Quest Tracker in Left Corner */}
+      {/* Floating Quest Tracker HUD (Left Middle) */}
       {chapters[activeChapterIdx] && (
         <QuestTrackerHUD
           currentChapter={chapters[activeChapterIdx]}
@@ -455,7 +473,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       {/* Floating Banner Notification */}
       {bannerAlert && (
-        <div className="absolute top-20 inset-x-6 z-30 max-w-lg mx-auto bg-slate-950/90 border border-emerald-500/40 text-emerald-300 px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl flex items-center gap-2 backdrop-blur-md animate-in slide-in-from-top duration-300">
+        <div className="absolute top-16 inset-x-6 z-30 max-w-lg mx-auto bg-slate-950/90 border border-emerald-500/40 text-emerald-300 px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl flex items-center gap-2 backdrop-blur-md animate-in slide-in-from-top duration-300">
           <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{bannerAlert}</span>
         </div>
@@ -470,7 +488,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         className="w-full h-full cursor-crosshair block"
       />
 
-      {/* Bottom Floating Interaction Prompt Bar */}
+      {/* Floating Bottom Action Prompt Bar */}
       {(nearbyBuilding || nearbyNpc || isNearFountain) && !enteredBuilding && !talkingNpc && !activeMinigame && (
         <div className="absolute bottom-6 inset-x-6 z-30 max-w-md mx-auto animate-in slide-in-from-bottom duration-200">
           <button
@@ -497,6 +515,32 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           </button>
         </div>
       )}
+
+      {/* Bottom Right Inventory & Campaign Quick Bar */}
+      <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2 pointer-events-auto">
+        <button
+          onClick={() => {
+            soundFx.playClick();
+            setShowInventory(true);
+          }}
+          className="px-3.5 py-2.5 rounded-2xl bg-slate-950/85 backdrop-blur-md text-slate-200 hover:text-white border border-slate-700/80 text-xs font-bold shadow-xl flex items-center gap-2 cursor-pointer"
+          title="Open Backpack [I]"
+        >
+          <Backpack className="w-4 h-4 text-emerald-400" />
+          <span>Bag [I]</span>
+        </button>
+
+        <button
+          onClick={() => {
+            soundFx.playClick();
+            setShowCampaignModal(true);
+          }}
+          className="px-3.5 py-2.5 rounded-2xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 text-xs font-bold shadow-xl flex items-center gap-2 cursor-pointer backdrop-blur-md"
+        >
+          <Trophy className="w-4 h-4 text-amber-400" />
+          <span>Quests</span>
+        </button>
+      </div>
 
       {/* On-Screen Mobile Virtual D-Pad */}
       <div className="absolute bottom-6 left-6 z-20 sm:hidden flex flex-col items-center gap-1 opacity-80 pointer-events-auto">
@@ -532,43 +576,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         </div>
       </div>
 
-      {/* Building Interior Modal with Mini-Game Launchers */}
+      {/* Building Interior Modal */}
       {enteredBuilding && (
-        <div className="relative">
-          <RPGBuildingInterior
-            building={enteredBuilding}
-            state={state}
-            onExit={() => setEnteredBuilding(null)}
-            onUpdateState={onUpdateState}
-          />
-          {/* Mini-game launch button overlays inside specific buildings */}
-          <div className="fixed bottom-12 inset-x-0 z-50 max-w-sm mx-auto px-4">
-            {enteredBuilding.type === 'BANK' && (
-              <button
-                onClick={() => setActiveMinigame('VAULT_SORTER')}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-extrabold text-xs shadow-xl cursor-pointer"
-              >
-                🎮 Play "The 50/30/20 Vault Sorter" Mini-Game!
-              </button>
-            )}
-            {enteredBuilding.type === 'STOCK_EXCHANGE' && (
-              <button
-                onClick={() => setActiveMinigame('DCA_WAVE')}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-400 text-slate-950 font-extrabold text-xs shadow-xl cursor-pointer"
-              >
-                🎮 Play "The DCA Wave Rider" Mini-Game!
-              </button>
-            )}
-            {enteredBuilding.type === 'SUPERSTORE' && (
-              <button
-                onClick={() => setActiveMinigame('GROCERY')}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-xs shadow-xl cursor-pointer"
-              >
-                🎮 Play "Smart Shopper Unit Price Duel"!
-              </button>
-            )}
-          </div>
-        </div>
+        <RPGBuildingInterior
+          building={enteredBuilding}
+          state={state}
+          onExit={() => setEnteredBuilding(null)}
+          onUpdateState={onUpdateState}
+          onLaunchMinigame={(m) => setActiveMinigame(m)}
+          onEquipVehicle={(v) => setPlayer((p) => ({ ...p, vehicle: v }))}
+          onEquipPet={() => setPlayer((p) => ({ ...p, hasPet: true }))}
+          currentVehicle={player.vehicle}
+          hasPet={player.hasPet}
+        />
       )}
 
       {/* Active Mini-Games */}

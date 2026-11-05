@@ -10,6 +10,8 @@ export interface PlayerEntity {
   name: string;
   avatarEmoji: string;
   shirtColor: string;
+  vehicle?: 'FOOT' | 'BICYCLE' | 'CAR';
+  hasPet?: boolean;
 }
 
 export function renderEntities(
@@ -146,20 +148,102 @@ export function renderEntities(
   const playerScreenX = canvasWidth / 2;
   const playerScreenY = canvasHeight / 2;
 
-  // Player Shadow
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-  ctx.beginPath();
-  ctx.ellipse(playerScreenX, playerScreenY + 16, 14, 6, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // Render Pet Companion (Compound Hound 🐕) if player has pet
+  if (player.hasPet) {
+    const petOffset = player.direction === 'left' ? 22 : -22;
+    const petY = playerScreenY + 6;
+    const petX = playerScreenX + petOffset;
+    const petBob = player.isMoving ? Math.sin(player.walkFrame * 1.2) * 2 : 0;
+
+    // Pet Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.beginPath();
+    ctx.ellipse(petX, petY + 8, 8, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dog body
+    ctx.fillStyle = '#d97706';
+    ctx.beginPath();
+    ctx.roundRect(petX - 7, petY - 4 + petBob, 14, 10, 4);
+    ctx.fill();
+
+    // Dog head
+    ctx.beginPath();
+    ctx.arc(petX + (player.direction === 'left' ? -5 : 5), petY - 6 + petBob, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wagging tail
+    const wag = Math.sin(Date.now() / 120) * 4;
+    ctx.strokeStyle = '#b45309';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(petX + (player.direction === 'left' ? 7 : -7), petY - 2 + petBob);
+    ctx.lineTo(petX + (player.direction === 'left' ? 12 : -12), petY - 8 + petBob + wag);
+    ctx.stroke();
+
+    // Pet Label
+    ctx.fillStyle = '#fef08a';
+    ctx.font = 'bold 8px monospace';
+    ctx.fillText('🐕 Hound', petX, petY - 14);
+  }
+
+  // Render Vehicles: BICYCLE or CAR
+  if (player.vehicle === 'CAR') {
+    // Car Chassis around player
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.beginPath();
+    ctx.ellipse(playerScreenX, playerScreenY + 18, 28, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#0ea5e9'; // electric blue car
+    ctx.beginPath();
+    ctx.roundRect(playerScreenX - 22, playerScreenY - 4, 44, 24, 6);
+    ctx.fill();
+
+    // Windows
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(playerScreenX - 16, playerScreenY, 32, 10);
+
+    // Wheels
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(playerScreenX - 20, playerScreenY + 16, 8, 6);
+    ctx.fillRect(playerScreenX + 12, playerScreenY + 16, 8, 6);
+  } else if (player.vehicle === 'BICYCLE') {
+    // Bicycle Frame & Wheels
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(playerScreenX - 12, playerScreenY + 14, 6, 0, Math.PI * 2);
+    ctx.arc(playerScreenX + 12, playerScreenY + 14, 6, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(playerScreenX - 12, playerScreenY + 14);
+    ctx.lineTo(playerScreenX, playerScreenY + 6);
+    ctx.lineTo(playerScreenX + 12, playerScreenY + 14);
+    ctx.moveTo(playerScreenX, playerScreenY + 6);
+    ctx.lineTo(playerScreenX + 6, playerScreenY - 2);
+    ctx.stroke();
+  }
+
+  // Player Shadow (if walking)
+  if (!player.vehicle || player.vehicle === 'FOOT') {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.beginPath();
+    ctx.ellipse(playerScreenX, playerScreenY + 16, 14, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   // Walk Cycle Bob
   const walkBob = player.isMoving ? Math.sin(player.walkFrame * 0.8) * 3 : 0;
   const legOffset = player.isMoving ? Math.sin(player.walkFrame * 0.8) * 6 : 0;
 
-  // Legs / Shoes
-  ctx.fillStyle = '#0f172a';
-  ctx.fillRect(playerScreenX - 7, playerScreenY + 8 + legOffset, 5, 8);
-  ctx.fillRect(playerScreenX + 2, playerScreenY + 8 - legOffset, 5, 8);
+  // Legs / Shoes (only if on foot)
+  if (!player.vehicle || player.vehicle === 'FOOT') {
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(playerScreenX - 7, playerScreenY + 8 + legOffset, 5, 8);
+    ctx.fillRect(playerScreenX + 2, playerScreenY + 8 - legOffset, 5, 8);
+  }
 
   // Torso / Jacket
   ctx.fillStyle = player.shirtColor || '#10b981';
