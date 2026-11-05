@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { GameState } from '../../types/game';
 import { BUILDINGS, BuildingEntrance, TILE_SIZE, MAP_WIDTH, MAP_HEIGHT } from '../world/mapData';
 import { INITIAL_NPCS, NPC } from '../entities/NPC';
@@ -7,21 +7,32 @@ import { renderWorldMap } from './tilesetRenderer';
 import { renderEntities, PlayerEntity } from './entityRenderer';
 import { RPGBuildingInterior } from '../ui/RPGBuildingInterior';
 import { DialogueBox } from '../ui/DialogueBox';
+import { WorldAtmosphere } from './timeAndWeather';
+import { CAMPAIGN_CHAPTERS, ChapterQuest } from './quests';
+import { INITIAL_INVENTORY, InventoryItem } from './inventory';
+import { QuestTrackerHUD } from '../ui/QuestTrackerHUD';
+import { InventoryModal } from '../ui/InventoryModal';
+import { CampaignStoryModal } from '../ui/CampaignStoryModal';
+import { FreedomBellModal } from '../ui/FreedomBellModal';
+import { VaultSorterMinigame } from '../minigames/VaultSorterMinigame';
+import { DCAWaveRiderMinigame } from '../minigames/DCAWaveRiderMinigame';
+import { SupermarketBasketMinigame } from '../minigames/SupermarketBasketMinigame';
 import { soundFx } from '../../audio/soundFx';
 import { getNetWorth } from '../../engine/gameEngine';
 import confetti from 'canvas-confetti';
 import { 
   Compass, 
-  MapPin, 
   ArrowUp, 
   ArrowDown, 
   ArrowLeft, 
   ArrowRight,
   Sparkles,
-  Award,
-  Wallet,
-  Smile,
-  Heart
+  Backpack,
+  Sun,
+  Moon,
+  CloudRain,
+  Trophy,
+  Bell
 } from 'lucide-react';
 
 interface GameCanvasProps {
@@ -37,10 +48,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Atmosphere engine instance
+  const atmosphereRef = useRef<WorldAtmosphere>(new WorldAtmosphere());
+
   // Player state in world px (Starts in Town Plaza)
   const [player, setPlayer] = useState<PlayerEntity>({
-    x: 24 * TILE_SIZE,
-    y: 17 * TILE_SIZE,
+    x: 24.5 * TILE_SIZE,
+    y: 17.5 * TILE_SIZE,
     direction: 'down',
     isMoving: false,
     walkFrame: 0,
@@ -51,16 +65,58 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
   const [npcs, setNpcs] = useState<NPC[]>(INITIAL_NPCS);
   const [collectibles, setCollectibles] = useState<Collectible[]>(INITIAL_COLLECTIBLES);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(INITIAL_INVENTORY);
+  const [chapters, setChapters] = useState<ChapterQuest[]>(CAMPAIGN_CHAPTERS);
+  const [activeChapterIdx, setActiveChapterIdx] = useState<number>(0);
 
-  // Active overlays
+  // Active overlays & Modals
   const [enteredBuilding, setEnteredBuilding] = useState<BuildingEntrance | null>(null);
   const [talkingNpc, setTalkingNpc] = useState<NPC | null>(null);
   const [nearbyBuilding, setNearbyBuilding] = useState<BuildingEntrance | null>(null);
   const [nearbyNpc, setNearbyNpc] = useState<NPC | null>(null);
-  const [bannerAlert, setBannerAlert] = useState<string | null>('Welcome to Prosperity City! Walk with WASD or Tap.');
+  const [isNearFountain, setIsNearFountain] = useState<boolean>(false);
+  const [bannerAlert, setBannerAlert] = useState<string | null>('Explore Prosperity City: Visit the Bank, Exchange, or talk to NPCs!');
+
+  // Modals
+  const [showInventory, setShowInventory] = useState<boolean>(false);
+  const [showCampaignModal, setShowCampaignModal] = useState<boolean>(false);
+  const [showFreedomBellModal, setShowFreedomBellModal] = useState<boolean>(false);
+  const [activeMinigame, setActiveMinigame] = useState<'VAULT_SORTER' | 'DCA_WAVE' | 'GROCERY' | null>(null);
 
   // Input keys
   const keysPressed = useRef<Record<string, boolean>>({});
+
+  // Check Quest Objectives on state changes
+  useEffect(() => {
+    const curChapter = chapters[activeChapterIdx];
+    if (!curChapter) return;
+
+    let allCompleted = true;
+    for (const obj of curChapter.objectives) {
+      if (!obj.isCompleted && obj.check(state)) {
+        obj.isCompleted = true;
+        soundFx.playCoin();
+        setBannerAlert(`⭐ Objective Complete: ${obj.description}`);
+        setTimeout(() => setBannerAlert(null), 4000);
+      }
+      if (!obj.isCompleted) {
+        allCompleted = false;
+      }
+    }
+
+    if (allCompleted && !curChapter.isCompleted) {
+      curChapter.isCompleted = true;
+      soundFx.playLevelUp();
+      confetti({ particleCount: 90, spread: 70 });
+      state.cash += curChapter.rewardCash;
+      state.totalXP += curChapter.rewardXP;
+      setBannerAlert(`🎉 Chapter ${curChapter.chapter} Complete: ${curChapter.title}! (+${curChapter.rewardCash} Cash)`);
+      if (activeChapterIdx < chapters.length - 1) {
+        setActiveChapterIdx((idx) => idx + 1);
+      }
+      onUpdateState({ ...state });
+    }
+  }, [state, activeChapterIdx, chapters]);
 
   // Keyboard listeners
   useEffect(() => {
@@ -69,7 +125,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       // E or Space to interact
       if (e.key === 'e' || e.key === 'E' || e.key === ' ') {
-        if (nearbyBuilding && !enteredBuilding) {
+        if (isNearFountain) {
+          setShowFreedomBellModal(true);
+        } else if (nearbyBuilding && !enteredBuilding) {
           soundFx.playLevelUp();
           setEnteredBuilding(nearbyBuilding);
         } else if (nearbyNpc && !talkingNpc) {
@@ -78,9 +136,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
+      // I for Inventory
+      if (e.key === 'i' || e.key === 'I') {
+        soundFx.playClick();
+        setShowInventory((v) => !v);
+      }
+
       if (e.key === 'Escape') {
         if (enteredBuilding) setEnteredBuilding(null);
         if (talkingNpc) setTalkingNpc(null);
+        if (showInventory) setShowInventory(false);
+        if (showCampaignModal) setShowCampaignModal(false);
+        if (showFreedomBellModal) setShowFreedomBellModal(false);
+        if (activeMinigame) setActiveMinigame(null);
       }
     };
 
@@ -94,7 +162,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [nearbyBuilding, nearbyNpc, enteredBuilding, talkingNpc]);
+  }, [nearbyBuilding, nearbyNpc, enteredBuilding, talkingNpc, isNearFountain, showInventory, showCampaignModal, showFreedomBellModal, activeMinigame]);
 
   // Main 60 FPS Game Loop
   useEffect(() => {
@@ -110,8 +178,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const dt = Math.min((time - lastTime) / 1000, 0.1);
       lastTime = time;
 
+      // Update atmosphere day/night cycle & weather
+      atmosphereRef.current.update(dt);
+
       // Only move if not in modal
-      if (!enteredBuilding && !talkingNpc) {
+      if (!enteredBuilding && !talkingNpc && !activeMinigame && !showInventory && !showCampaignModal && !showFreedomBellModal) {
         let dx = 0;
         let dy = 0;
 
@@ -125,7 +196,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           dy *= 0.7071;
         }
 
-        const speed = 180; // px per second
+        const speed = 190; // px per second
         let nextX = player.x + dx * speed * dt;
         let nextY = player.y + dy * speed * dt;
 
@@ -148,6 +219,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (isMoving) {
           player.walkFrame += dt * 10;
         }
+
+        // Check Plaza Fountain proximity for Freedom Bell
+        const fountainX = 24.5 * TILE_SIZE;
+        const fountainY = 17.5 * TILE_SIZE;
+        const distFountain = Math.hypot(player.x - fountainX, player.y - fountainY);
+        setIsNearFountain(distFountain < 50);
 
         // Check building proximity
         let foundBldg: BuildingEntrance | null = null;
@@ -180,7 +257,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             if (dist < 30) {
               item.isCollected = true;
               soundFx.playCoin();
-              confetti({ particleCount: 30, spread: 40, origin: { y: 0.8 } });
+              confetti({ particleCount: 35, spread: 45, origin: { y: 0.8 } });
               state.cash += item.value;
               state.totalXP += 25;
               setBannerAlert(`🎉 ${item.title}: ${item.message}`);
@@ -212,7 +289,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
-      // Render Everything onto Canvas
+      // Render World Map
       const w = canvas.width;
       const h = canvas.height;
 
@@ -229,12 +306,29 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         nearbyNpc ? nearbyNpc.id : null
       );
 
+      // Render Day/Night Atmosphere & Light Sources (Streetlamps, doorways)
+      const lightSources = BUILDINGS.map((b) => ({
+        x: b.tileX * TILE_SIZE - player.x + w / 2,
+        y: b.tileY * TILE_SIZE - player.y + h / 2,
+        radius: 110,
+        color: b.color,
+      }));
+
+      atmosphereRef.current.renderLighting(
+        ctx,
+        w,
+        h,
+        w / 2,
+        h / 2,
+        lightSources
+      );
+
       animationId = requestAnimationFrame(loop);
     };
 
     animationId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationId);
-  }, [enteredBuilding, talkingNpc, nearbyBuilding, nearbyNpc, npcs, collectibles, state]);
+  }, [enteredBuilding, talkingNpc, nearbyBuilding, nearbyNpc, npcs, collectibles, state, activeMinigame, showInventory, showCampaignModal, showFreedomBellModal, isNearFountain]);
 
   // Click / Tap to walk on canvas
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -244,11 +338,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const clickScreenX = e.clientX - rect.left;
     const clickScreenY = e.clientY - rect.top;
 
-    // Convert screen coordinates to world
     const worldClickX = clickScreenX - canvas.width / 2 + player.x;
     const worldClickY = clickScreenY - canvas.height / 2 + player.y;
 
-    // If clicked on nearby building or npc, interact!
+    if (isNearFountain) {
+      setShowFreedomBellModal(true);
+      return;
+    }
     if (nearbyBuilding) {
       soundFx.playLevelUp();
       setEnteredBuilding(nearbyBuilding);
@@ -260,7 +356,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       return;
     }
 
-    // Move player toward click point
     const dx = worldClickX - player.x;
     const dy = worldClickY - player.y;
     const dist = Math.hypot(dx, dy);
@@ -274,7 +369,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const netWorth = getNetWorth(state);
 
   return (
-    <div className="relative w-full h-[85vh] rounded-3xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 flex flex-col select-none">
+    <div className="relative w-full h-[88vh] rounded-3xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 flex flex-col select-none">
       
       {/* Top Game HUD Bar */}
       <div className="absolute top-4 inset-x-4 z-30 flex items-center justify-between gap-3 pointer-events-none">
@@ -300,36 +395,63 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           </div>
         </div>
 
-        {/* Center: Switch to Executive Simulator Mode */}
-        <div className="pointer-events-auto hidden sm:flex items-center gap-2 bg-slate-950/85 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-slate-700/80">
-          <span className="text-[11px] text-slate-300 font-semibold">Mode:</span>
-          <span className="text-xs font-bold text-emerald-400">🕹️ 2D City RPG</span>
+        {/* Center: Weather & Time Pill */}
+        <div className="pointer-events-auto hidden md:flex items-center gap-2 bg-slate-950/85 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-slate-700/80 text-xs text-slate-300 font-mono">
+          {atmosphereRef.current.timeOfDay === 'NIGHT' ? (
+            <Moon className="w-3.5 h-3.5 text-cyan-400" />
+          ) : (
+            <Sun className="w-3.5 h-3.5 text-amber-400" />
+          )}
+          <span className="font-bold text-white">{atmosphereRef.current.timeOfDay}</span>
+          <span>•</span>
           <button
             onClick={() => {
+              const next = atmosphereRef.current.weather === 'SUNNY' ? 'RAINY' : atmosphereRef.current.weather === 'RAINY' ? 'PETAL_FALL' : 'SUNNY';
+              atmosphereRef.current.setWeather(next);
               soundFx.playClick();
-              onSwitchToExecutiveMode();
             }}
-            className="ml-2 px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-all border border-slate-700 cursor-pointer"
+            className="text-slate-400 hover:text-white"
+            title="Toggle Weather"
           >
-            Switch to Executive Simulator ➔
+            {atmosphereRef.current.weather}
           </button>
         </div>
 
-        {/* Right: Quick Controls & Compass */}
+        {/* Right: Backpack & Campaign Buttons */}
         <div className="pointer-events-auto flex items-center gap-2">
           <button
             onClick={() => {
-              soundFx.playCoin();
-              setBannerAlert('Walk to First Prosperity Bank, Stock Exchange, or talk to NPCs!');
+              soundFx.playClick();
+              setShowInventory(true);
             }}
             className="px-3.5 py-2 rounded-2xl bg-slate-950/85 backdrop-blur-md text-slate-300 hover:text-white border border-slate-700/80 text-xs font-bold shadow-xl flex items-center gap-1.5 cursor-pointer"
+            title="Open Backpack [I]"
           >
-            <Compass className="w-4 h-4 text-emerald-400" />
-            <span>Map Guide</span>
+            <Backpack className="w-4 h-4 text-emerald-400" />
+            <span>Bag [I]</span>
+          </button>
+
+          <button
+            onClick={() => {
+              soundFx.playClick();
+              setShowCampaignModal(true);
+            }}
+            className="px-3.5 py-2 rounded-2xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 text-xs font-bold shadow-xl flex items-center gap-1.5 cursor-pointer backdrop-blur-md"
+          >
+            <Trophy className="w-4 h-4 text-amber-400" />
+            <span>Quests</span>
           </button>
         </div>
 
       </div>
+
+      {/* Floating Quest Tracker in Left Corner */}
+      {chapters[activeChapterIdx] && (
+        <QuestTrackerHUD
+          currentChapter={chapters[activeChapterIdx]}
+          onOpenCampaignModal={() => setShowCampaignModal(true)}
+        />
+      )}
 
       {/* Floating Banner Notification */}
       {bannerAlert && (
@@ -349,11 +471,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       />
 
       {/* Bottom Floating Interaction Prompt Bar */}
-      {(nearbyBuilding || nearbyNpc) && !enteredBuilding && !talkingNpc && (
+      {(nearbyBuilding || nearbyNpc || isNearFountain) && !enteredBuilding && !talkingNpc && !activeMinigame && (
         <div className="absolute bottom-6 inset-x-6 z-30 max-w-md mx-auto animate-in slide-in-from-bottom duration-200">
           <button
             onClick={() => {
-              if (nearbyBuilding) {
+              if (isNearFountain) {
+                setShowFreedomBellModal(true);
+              } else if (nearbyBuilding) {
                 soundFx.playLevelUp();
                 setEnteredBuilding(nearbyBuilding);
               } else if (nearbyNpc) {
@@ -364,7 +488,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-sm shadow-2xl shadow-emerald-500/40 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
           >
             <span>
-              {nearbyBuilding ? `Enter ${nearbyBuilding.name} [E]` : `Talk to ${nearbyNpc?.name} [E]`}
+              {isNearFountain
+                ? '🔔 Ring Freedom Bell (FIRE Summit) [E]'
+                : nearbyBuilding
+                ? `Enter ${nearbyBuilding.name} [E]`
+                : `Talk to ${nearbyNpc?.name} [E]`}
             </span>
           </button>
         </div>
@@ -404,13 +532,82 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         </div>
       </div>
 
-      {/* Building Interior Modal */}
+      {/* Building Interior Modal with Mini-Game Launchers */}
       {enteredBuilding && (
-        <RPGBuildingInterior
-          building={enteredBuilding}
-          state={state}
-          onExit={() => setEnteredBuilding(null)}
-          onUpdateState={onUpdateState}
+        <div className="relative">
+          <RPGBuildingInterior
+            building={enteredBuilding}
+            state={state}
+            onExit={() => setEnteredBuilding(null)}
+            onUpdateState={onUpdateState}
+          />
+          {/* Mini-game launch button overlays inside specific buildings */}
+          <div className="fixed bottom-12 inset-x-0 z-50 max-w-sm mx-auto px-4">
+            {enteredBuilding.type === 'BANK' && (
+              <button
+                onClick={() => setActiveMinigame('VAULT_SORTER')}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-extrabold text-xs shadow-xl cursor-pointer"
+              >
+                🎮 Play "The 50/30/20 Vault Sorter" Mini-Game!
+              </button>
+            )}
+            {enteredBuilding.type === 'STOCK_EXCHANGE' && (
+              <button
+                onClick={() => setActiveMinigame('DCA_WAVE')}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-400 text-slate-950 font-extrabold text-xs shadow-xl cursor-pointer"
+              >
+                🎮 Play "The DCA Wave Rider" Mini-Game!
+              </button>
+            )}
+            {enteredBuilding.type === 'SUPERSTORE' && (
+              <button
+                onClick={() => setActiveMinigame('GROCERY')}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-xs shadow-xl cursor-pointer"
+              >
+                🎮 Play "Smart Shopper Unit Price Duel"!
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Active Mini-Games */}
+      {activeMinigame === 'VAULT_SORTER' && (
+        <VaultSorterMinigame
+          onClose={() => setActiveMinigame(null)}
+          onComplete={(score, cash, xp) => {
+            state.cash += cash;
+            state.totalXP += xp;
+            onUpdateState({ ...state });
+            setActiveMinigame(null);
+            setBannerAlert(`🎉 Vault Sorting Complete! +$${cash} Cash, +${xp} XP.`);
+          }}
+        />
+      )}
+
+      {activeMinigame === 'DCA_WAVE' && (
+        <DCAWaveRiderMinigame
+          onClose={() => setActiveMinigame(null)}
+          onComplete={(shares, profit, xp) => {
+            state.cash += profit;
+            state.totalXP += xp;
+            onUpdateState({ ...state });
+            setActiveMinigame(null);
+            setBannerAlert(`📈 DCA Wave Completed: +$${profit} profit, +${xp} XP!`);
+          }}
+        />
+      )}
+
+      {activeMinigame === 'GROCERY' && (
+        <SupermarketBasketMinigame
+          onClose={() => setActiveMinigame(null)}
+          onComplete={(savings, xp) => {
+            state.cash += savings;
+            state.totalXP += xp;
+            onUpdateState({ ...state });
+            setActiveMinigame(null);
+            setBannerAlert(`🛒 Smart Grocery Completed: +$${savings} cash saved, +${xp} XP!`);
+          }}
         />
       )}
 
@@ -421,6 +618,35 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           state={state}
           onClose={() => setTalkingNpc(null)}
           onUpdateState={onUpdateState}
+        />
+      )}
+
+      {/* Backpack Inventory Modal */}
+      {showInventory && (
+        <InventoryModal
+          items={inventoryItems}
+          onToggleEquip={(item) => {
+            item.isEquipped = !item.isEquipped;
+            setInventoryItems([...inventoryItems]);
+          }}
+          onClose={() => setShowInventory(false)}
+        />
+      )}
+
+      {/* Campaign Story Modal */}
+      {showCampaignModal && (
+        <CampaignStoryModal
+          chapters={chapters}
+          activeChapterIdx={activeChapterIdx}
+          onClose={() => setShowCampaignModal(false)}
+        />
+      )}
+
+      {/* Freedom Bell FIRE Finale Modal */}
+      {showFreedomBellModal && (
+        <FreedomBellModal
+          state={state}
+          onClose={() => setShowFreedomBellModal(false)}
         />
       )}
 
