@@ -20,10 +20,13 @@ import { VaultSorterMinigame } from '../minigames/VaultSorterMinigame';
 import { DCAWaveRiderMinigame } from '../minigames/DCAWaveRiderMinigame';
 import { SupermarketBasketMinigame } from '../minigames/SupermarketBasketMinigame';
 import { soundFx } from '../../audio/soundFx';
+import { ambientMusic } from '../../audio/ambientMusic';
 import { advanceTurn, getNetWorth } from '../../engine/gameEngine';
 import { LifeFocusModal } from '../ui/LifeFocusModal';
 import { GenerationalLegacyModal } from '../ui/GenerationalLegacyModal';
 import { LifeStageHUD } from '../ui/LifeStageHUD';
+import { INTERIOR_ROOMS } from '../world/interiorData';
+import { WalkableInterior } from './WalkableInterior';
 import confetti from 'canvas-confetti';
 import { 
   Compass, 
@@ -96,6 +99,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const [showLifeFocusModal, setShowLifeFocusModal] = useState<boolean>(false);
   const [showLegacyModal, setShowLegacyModal] = useState<boolean>(false);
   const [activeMinigame, setActiveMinigame] = useState<'VAULT_SORTER' | 'DCA_WAVE' | 'GROCERY' | null>(null);
+
+  // Interior View: WALKABLE 2.5D room vs full TERMINAL dashboard
+  const [interiorView, setInteriorView] = useState<'WALKABLE' | 'TERMINAL'>('WALKABLE');
+
+  const handleEnterBuilding = (bldg: BuildingEntrance) => {
+    soundFx.playLevelUp();
+    setEnteredBuilding(bldg);
+    setInteriorView('WALKABLE');
+  };
 
   // Period / Turn advance handler
   const handleAdvancePeriod = () => {
@@ -173,8 +185,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (isNearFountain) {
           setShowFreedomBellModal(true);
         } else if (nearbyBuilding && !enteredBuilding) {
-          soundFx.playLevelUp();
-          setEnteredBuilding(nearbyBuilding);
+          handleEnterBuilding(nearbyBuilding);
         } else if (nearbyNpc && !talkingNpc) {
           soundFx.playTwistAlert();
           setTalkingNpc(nearbyNpc);
@@ -228,6 +239,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       // Update atmosphere day/night cycle & weather
       atmosphereRef.current.update(dt);
+      ambientMusic.setMode(atmosphereRef.current.timeOfDay === 'NIGHT' ? 'NIGHT' : 'DAY');
 
       // Only move if not inside a modal
       if (!enteredBuilding && !talkingNpc && !activeMinigame && !showInventory && !showCampaignModal && !showFreedomBellModal && !showLifeFocusModal && !showLegacyModal) {
@@ -407,8 +419,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       return;
     }
     if (nearbyBuilding) {
-      soundFx.playLevelUp();
-      setEnteredBuilding(nearbyBuilding);
+      handleEnterBuilding(nearbyBuilding);
       return;
     }
     if (nearbyNpc) {
@@ -513,8 +524,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               if (isNearFountain) {
                 setShowFreedomBellModal(true);
               } else if (nearbyBuilding) {
-                soundFx.playLevelUp();
-                setEnteredBuilding(nearbyBuilding);
+                handleEnterBuilding(nearbyBuilding);
               } else if (nearbyNpc) {
                 soundFx.playTwistAlert();
                 setTalkingNpc(nearbyNpc);
@@ -601,21 +611,62 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         </div>
       </div>
 
-      {/* Building Interior Modal */}
-      {enteredBuilding && (
-        <RPGBuildingInterior
-          building={enteredBuilding}
-          state={state}
-          onExit={() => setEnteredBuilding(null)}
-          onUpdateState={onUpdateState}
-          onLaunchMinigame={(m) => setActiveMinigame(m)}
-          onOpenLegacyModal={() => setShowLegacyModal(true)}
-          onEquipVehicle={(v) => setPlayer((p) => ({ ...p, vehicle: v }))}
-          onEquipPet={() => setPlayer((p) => ({ ...p, hasPet: true }))}
-          currentVehicle={player.vehicle}
-          hasPet={player.hasPet}
-        />
-      )}
+      {/* Building Interior Modal: Walkable 2.5D Room or Interactive Terminal */}
+      {enteredBuilding && (() => {
+        const room = INTERIOR_ROOMS[enteredBuilding.id];
+        if (room && interiorView === 'WALKABLE') {
+          return (
+            <WalkableInterior
+              room={room}
+              playerEntity={player}
+              onExit={() => setEnteredBuilding(null)}
+              onSwitchToTerminal={() => setInteriorView('TERMINAL')}
+              onTriggerStation={(station) => {
+                if (station.actionType === 'BANK_VAULT') {
+                  setActiveMinigame('VAULT_SORTER');
+                } else if (station.actionType === 'STOCK_TERMINAL') {
+                  setActiveMinigame('DCA_WAVE');
+                } else if (station.actionType === 'CAFE_BAR') {
+                  state.character.happiness = Math.min(100, state.character.happiness + 8);
+                  state.character.health = Math.min(100, state.character.health + 4);
+                  if (state.burnout) state.burnout = Math.max(0, state.burnout - 15);
+                  onUpdateState({ ...state });
+                  soundFx.playCoin();
+                  setBannerAlert('☕ Fresh espresso enjoyed! Happiness +8%, Health +4%, Burnout reduced!');
+                  setTimeout(() => setBannerAlert(null), 4000);
+                } else if (station.actionType === 'HOME_BED') {
+                  state.character.health = Math.min(100, state.character.health + 15);
+                  state.character.happiness = Math.min(100, state.character.happiness + 15);
+                  state.burnout = 0;
+                  onUpdateState({ ...state });
+                  soundFx.playLevelUp();
+                  setBannerAlert('🛏️ Rested comfortably in your studio! Health & Happiness +15%, Burnout reset to 0%!');
+                  setTimeout(() => setBannerAlert(null), 4000);
+                } else {
+                  // Bank Teller, Stock Broker, Cafe Table, Home Laptop -> Switch to Terminal view
+                  setInteriorView('TERMINAL');
+                }
+              }}
+            />
+          );
+        }
+
+        return (
+          <RPGBuildingInterior
+            building={enteredBuilding}
+            state={state}
+            onExit={() => setEnteredBuilding(null)}
+            onUpdateState={onUpdateState}
+            onLaunchMinigame={(m) => setActiveMinigame(m)}
+            onOpenLegacyModal={() => setShowLegacyModal(true)}
+            onEquipVehicle={(v) => setPlayer((p) => ({ ...p, vehicle: v }))}
+            onEquipPet={() => setPlayer((p) => ({ ...p, hasPet: true }))}
+            currentVehicle={player.vehicle}
+            hasPet={player.hasPet}
+            onSwitchToWalkable={room ? () => setInteriorView('WALKABLE') : undefined}
+          />
+        );
+      })()}
 
       {/* Active Mini-Games */}
       {activeMinigame === 'VAULT_SORTER' && (

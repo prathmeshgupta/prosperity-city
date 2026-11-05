@@ -8,10 +8,12 @@ import { OnboardingCutscene } from './game/ui/OnboardingCutscene';
 import { ProsperityLogo } from './game/ui/ProsperityLogo';
 import { ArchetypeSelectorModal } from './components/ArchetypeSelectorModal';
 import { soundFx } from './audio/soundFx';
+import { ambientMusic } from './audio/ambientMusic';
 import { 
   RotateCcw, 
   Volume2, 
   VolumeX, 
+  Music,
   HelpCircle, 
   Sparkles,
   Home as HomeIcon
@@ -45,6 +47,8 @@ export function App() {
   const [showCharacterModal, setShowCharacterModal] = useState<boolean>(false);
   const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(soundFx.getMuted());
+  const [isMusicPlaying, setIsMusicPlaying] = useState<boolean>(false);
+  const [isMusicMuted, setIsMusicMuted] = useState<boolean>(ambientMusic.isAudioMuted());
 
   // Auto-save on state update
   const handleUpdateState = (newState: GameState) => {
@@ -70,18 +74,33 @@ export function App() {
     }
     setShowCutscene(true);
     setIsPlaying(true);
+    ambientMusic.start();
+    setIsMusicPlaying(true);
   };
 
   const handleResumeGame = () => {
     soundFx.playLevelUp();
     setIsPlaying(true);
     setShowCutscene(false);
+    ambientMusic.start();
+    setIsMusicPlaying(true);
   };
 
   const toggleSound = () => {
     const muted = soundFx.toggleMute();
     setIsMuted(muted);
     if (!muted) soundFx.playClick();
+  };
+
+  const toggleMusic = () => {
+    if (!isMusicPlaying) {
+      ambientMusic.start();
+      setIsMusicPlaying(true);
+      setIsMusicMuted(false);
+    } else {
+      const muted = ambientMusic.toggleMute();
+      setIsMusicMuted(muted);
+    }
   };
 
   // If player hasn't pressed start yet, show the rich Title Screen
@@ -126,9 +145,20 @@ export function App() {
           <button
             onClick={toggleSound}
             className="p-2 rounded-xl bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition-colors cursor-pointer"
-            title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+            title={isMuted ? 'Unmute Sound Effects' : 'Mute Sound Effects'}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+          </button>
+
+          <button
+            onClick={toggleMusic}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-800 transition-all cursor-pointer"
+            title={!isMusicPlaying || isMusicMuted ? 'Play Ambient Lo-Fi BGM' : 'Mute Ambient Lo-Fi BGM'}
+          >
+            <Music className={`w-4 h-4 ${isMusicPlaying && !isMusicMuted ? 'text-purple-400 animate-pulse' : 'text-slate-500'}`} />
+            <span className="text-[10px] font-bold hidden sm:inline">
+              {isMusicPlaying && !isMusicMuted ? 'Lo-Fi ON' : 'Lo-Fi'}
+            </span>
           </button>
 
           <button

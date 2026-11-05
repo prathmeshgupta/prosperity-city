@@ -38,6 +38,7 @@ interface RPGBuildingInteriorProps {
   onEquipPet?: () => void;
   currentVehicle?: 'FOOT' | 'BICYCLE' | 'CAR';
   hasPet?: boolean;
+  onSwitchToWalkable?: () => void;
 }
 
 export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
@@ -51,6 +52,7 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
   onEquipPet,
   currentVehicle = 'FOOT',
   hasPet = false,
+  onSwitchToWalkable,
 }) => {
   const [interactionToast, setInteractionToast] = useState<string | null>(null);
 
@@ -85,17 +87,33 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
             </div>
           </div>
 
-          {/* Exit Door Button */}
-          <button
-            onClick={() => {
-              soundFx.playClick();
-              onExit();
-            }}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all border border-slate-700 cursor-pointer"
-          >
-            <LogOut className="w-4 h-4 text-emerald-400" />
-            <span>Exit to Street [ESC]</span>
-          </button>
+          {/* Action Header Buttons */}
+          <div className="flex items-center gap-2">
+            {onSwitchToWalkable && (
+              <button
+                onClick={() => {
+                  soundFx.playClick();
+                  onSwitchToWalkable();
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-bold transition-all border border-emerald-500/30 cursor-pointer"
+                title="Switch to Walkable 2.5D Room View"
+              >
+                <span>🚶 Walk Inside Room</span>
+              </button>
+            )}
+
+            {/* Exit Door Button */}
+            <button
+              onClick={() => {
+                soundFx.playClick();
+                onExit();
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all border border-slate-700 cursor-pointer"
+            >
+              <LogOut className="w-4 h-4 text-emerald-400" />
+              <span>Exit to Street [ESC]</span>
+            </button>
+          </div>
         </div>
 
         {/* Interior Content Body */}
