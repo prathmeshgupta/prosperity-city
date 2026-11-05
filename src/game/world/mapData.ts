@@ -38,7 +38,11 @@ export interface BuildingEntrance {
     | 'CLINIC'
     | 'CRYPTO_LOUNGE'
     | 'SHADY_ALLEY'
-    | 'TOWN_HALL';
+    | 'TOWN_HALL'
+    | 'WEALTH_ADVISORY'
+    | 'BOND_PIT'
+    | 'TAX_OFFICE'
+    | 'TECH_INCUBATOR';
   description: string;
   isOwnedByPlayer?: boolean;
   price?: number;
@@ -240,7 +244,7 @@ export const BUILDINGS: BuildingEntrance[] = [
     color: '#38BDF8',
     tileX: 41,
     tileY: 5,
-    type: 'BANK',
+    type: 'WEALTH_ADVISORY',
     description: 'Establish generational family trusts, structure estate transfer documents, and optimize high-net-worth tax strategies.',
   },
 
@@ -254,7 +258,7 @@ export const BUILDINGS: BuildingEntrance[] = [
     color: '#818CF8',
     tileX: 16,
     tileY: 5,
-    type: 'CAREER_TOWER',
+    type: 'TECH_INCUBATOR',
     description: 'Angel investing, seed-stage equity grants, and technical salary ladders for high-growth tech entrepreneurs.',
   },
 
@@ -268,7 +272,7 @@ export const BUILDINGS: BuildingEntrance[] = [
     color: '#34D399',
     tileX: 51,
     tileY: 5,
-    type: 'STOCK_EXCHANGE',
+    type: 'BOND_PIT',
     description: 'Lock in guaranteed 5.2% treasury yields, build bond ladders, and hedge against stock market volatility.',
   },
 
@@ -282,7 +286,7 @@ export const BUILDINGS: BuildingEntrance[] = [
     color: '#F43F5E',
     tileX: 28,
     tileY: 14,
-    type: 'TOWN_HALL',
+    type: 'TAX_OFFICE',
     description: 'Audit your annual returns, harvest investment tax losses, and claim eligible education and business deductions.',
   },
 

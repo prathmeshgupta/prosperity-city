@@ -33,6 +33,10 @@ export interface AssetDefinition {
   expansionPackId?: string;
   icon: string;
   riskRating: 1 | 2 | 3 | 4 | 5; // 1 = lowest, 5 = highest
+  durationYears?: number;
+  isTaxExempt?: boolean;
+  isInflationProtected?: boolean;
+  assetLocationRecommendation?: 'TAXABLE' | 'TAX_DEFERRED' | 'TAX_FREE';
 }
 
 export interface PortfolioPosition {
@@ -54,7 +58,7 @@ export interface DebtItem {
 export interface InsurancePolicy {
   id: string;
   name: string;
-  category: 'HEALTH' | 'RENTERS' | 'AUTO' | 'TERM_LIFE';
+  category: 'HEALTH' | 'RENTERS' | 'AUTO' | 'TERM_LIFE' | 'DISABILITY_OWN_OCC' | 'UMBRELLA' | 'LONG_TERM_CARE';
   monthlyPremium: number;
   coverageDescription: string;
   isActive: boolean;

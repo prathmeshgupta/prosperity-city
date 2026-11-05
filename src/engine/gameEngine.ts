@@ -1,8 +1,10 @@
-import { GameState, TwistEvent, TwistChoice, MarketSentiment } from '../types/game';
+import { GameState, TwistEvent, TwistChoice, MarketSentiment, AssetDefinition } from '../types/game';
 import { BASE_TWIST_EVENTS } from '../data/baseEvents';
 import { expansionManager } from '../expansions/registry';
 import { soundFx } from '../audio/soundFx';
 import { processLifecycleTurnImpact, getLifeStage } from '../game/engine/lifecycleEngine';
+import { calculateComprehensiveTaxes } from '../game/engine/cfpPlanningEngine';
+import { calculateYieldCurve, calculateBondPriceChange, calculateTIPSReturn } from '../game/engine/cfaMarketEngine';
 
 export interface AdvanceTurnResult {
   nextState: GameState;
@@ -26,9 +28,20 @@ export function advanceTurn(currentState: GameState): AdvanceTurnResult {
   state.month += months;
   state.character.age = Math.floor(state.character.initialAge + (state.month - 1) / 12);
 
-  // 1. Economic Sentiment Drift
+  // 1. Economic Sentiment Drift & CFA Interest Rate Dynamics
   state.sentiment = getNextSentiment(state.sentiment);
   state.economicHeadline = getRandomHeadline(state.sentiment);
+
+  // Macro interest rate drift based on economic regime
+  const prevInterestRate = state.interestRate;
+  if (state.sentiment === 'BOOM' || state.sentiment === 'STAGFLATION') {
+    state.interestRate = Math.min(0.08, state.interestRate + 0.0025); // +25 bps hike to cool inflation
+  } else if (state.sentiment === 'CRASH') {
+    state.interestRate = Math.max(0.01, state.interestRate - 0.0075); // -75 bps emergency easing cut
+  } else if (state.sentiment === 'BEAR') {
+    state.interestRate = Math.max(0.015, state.interestRate - 0.0025); // -25 bps cut
+  }
+  const interestRateChange = state.interestRate - prevInterestRate;
 
   // 2. Gross Income calculation
   const quarterlyBaseSalary = (state.character.annualSalary / 12) * months;
@@ -37,10 +50,7 @@ export function advanceTurn(currentState: GameState): AdvanceTurnResult {
     .reduce((acc, s) => acc + s.monthlyIncome * months, 0);
   const grossIncome = quarterlyBaseSalary + quarterlySideHustle;
 
-  // 3. Taxes (approx ~22% effective)
-  const taxes = Math.round(grossIncome * 0.22);
-
-  // 4. Retirement 401(k) deduction and Employer Match
+  // 3. Retirement 401(k) deduction and Employer Match (Pre-Tax Above-The-Line Deduction)
   const employee401k = Math.round(quarterlyBaseSalary * state.retirement.employee401kContributionPct);
   const matchablePct = Math.min(
     state.retirement.employee401kContributionPct,
@@ -49,6 +59,15 @@ export function advanceTurn(currentState: GameState): AdvanceTurnResult {
   const employerMatch = Math.round(quarterlyBaseSalary * matchablePct * state.retirement.employerMatchRate);
   const total401kDeposit = employee401k + employerMatch;
   state.retirement.traditional401k += total401kDeposit;
+
+  // 4. CFP Progressive Income Taxes (Federal Marginal Brackets + FICA + State)
+  const annualGross = grossIncome * (12 / months);
+  const annual401k = employee401k * (12 / months);
+  const taxComp = calculateComprehensiveTaxes(annualGross, 'METROPOLIS_HUB', 'SINGLE', {
+    traditional401k: annual401k,
+    studentLoanInterestPaid: state.debts.some((d) => d.category === 'STUDENT_LOAN') ? 2000 : 0,
+  });
+  const taxes = Math.round(taxComp.totalTaxOwed / (12 / months));
 
   // 5. Living Expenses based on Lifestyle level
   const lifestyleRatio =
@@ -85,7 +104,13 @@ export function advanceTurn(currentState: GameState): AdvanceTurnResult {
   // 9. Asset Price Movement & Dividends
   let totalDividends = 0;
   for (const asset of state.assets) {
-    const priceChangePct = calculateAssetPriceReturn(asset, state.sentiment, months);
+    const priceChangePct = calculateAssetPriceReturn(
+      asset,
+      state.sentiment,
+      months,
+      interestRateChange,
+      state.inflationRate
+    );
     const newPrice = Math.max(1, Math.round(asset.currentPrice * (1 + priceChangePct) * 100) / 100);
     asset.currentPrice = newPrice;
     asset.historicalPrices.push(newPrice);
@@ -344,6 +369,8 @@ export function executeSellAsset(
   const nextState: GameState = JSON.parse(JSON.stringify(state));
   const target = nextState.portfolio.find((p) => p.assetId === assetId)!;
   const proceed = Math.round(sharesToSell * asset.currentPrice);
+  const costBasisPortion = Math.round(sharesToSell * target.costBasis);
+  const realizedGainLoss = proceed - costBasisPortion;
 
   target.shares -= sharesToSell;
   if (target.shares <= 0.0001) {
@@ -352,9 +379,14 @@ export function executeSellAsset(
   nextState.cash += proceed;
 
   soundFx.playCoin();
+  const taxFeedback =
+    realizedGainLoss >= 0
+      ? `Realized capital gain of +$${realizedGainLoss.toLocaleString()} (taxable at favorable LTCG rates).`
+      : `Realized capital loss of -$${Math.abs(realizedGainLoss).toLocaleString()} (eligible for Tax-Loss Harvesting at City Tax Bureau).`;
+
   return {
     success: true,
-    message: `Sold ${sharesToSell} shares of ${asset.name} for $${proceed.toLocaleString()}`,
+    message: `Sold ${sharesToSell} shares of ${asset.name} for $${proceed.toLocaleString()}. ${taxFeedback}`,
     nextState,
   };
 }
@@ -510,11 +542,27 @@ function getRandomHeadline(sentiment: MarketSentiment): string {
 }
 
 function calculateAssetPriceReturn(
-  asset: { category: string; volatility: number; expectedAnnualReturn: number },
+  asset: AssetDefinition,
   sentiment: MarketSentiment,
-  months: number
+  months: number,
+  interestRateChange: number = 0,
+  cpiInflationRate: number = 0.032
 ): number {
   const annualT = months / 12;
+  const shock = (Math.random() - 0.5) * 2 * asset.volatility * Math.sqrt(annualT);
+
+  // CFA Fixed Income: Duration & Convexity pricing
+  if (asset.durationYears && asset.durationYears > 0) {
+    const durationImpact = calculateBondPriceChange(asset.durationYears, 25, interestRateChange);
+    const couponYieldReturn = (asset.dividendYield || asset.expectedAnnualReturn) * annualT;
+    return couponYieldReturn + durationImpact + shock * 0.3;
+  }
+
+  // TIPS: Real Yield + CPI Inflation principal adjustment
+  if (asset.isInflationProtected) {
+    return calculateTIPSReturn(asset.expectedAnnualReturn, cpiInflationRate, months) + shock * 0.4;
+  }
+
   const sentimentBias: Record<MarketSentiment, number> = {
     BOOM: 0.12,
     BULL: 0.06,
@@ -529,10 +577,11 @@ function calculateAssetPriceReturn(
                asset.category === 'TECH_GROWTH' ? 1.6 :
                asset.category === 'STARTUP_EQUITY' ? 2.0 :
                asset.category === 'BLUE_CHIP' ? 0.9 :
+               asset.category === 'REAL_ESTATE_REIT' ? 1.1 :
+               asset.category === 'COMMODITY' ? 0.8 :
                asset.category === 'GOV_BOND' ? 0.2 : 1.0;
 
   const drift = (asset.expectedAnnualReturn + sentimentBias[sentiment] * beta) * annualT;
-  const shock = (Math.random() - 0.5) * 2 * asset.volatility * Math.sqrt(annualT);
   return drift + shock;
 }
 

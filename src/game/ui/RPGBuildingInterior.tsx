@@ -34,6 +34,11 @@ import {
   Key
 } from 'lucide-react';
 
+import { TaxOfficeInterior } from './institutions/TaxOfficeInterior';
+import { BondPitInterior } from './institutions/BondPitInterior';
+import { WealthAdvisoryInterior } from './institutions/WealthAdvisoryInterior';
+import { TechIncubatorInterior } from './institutions/TechIncubatorInterior';
+
 interface RPGBuildingInteriorProps {
   building: BuildingEntrance;
   state: GameState;
@@ -1007,6 +1012,123 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* CFP Comprehensive Insurance Underwriting Exchange */}
+              <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h5 className="font-bold text-xs text-white flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 text-teal-400" />
+                      CFP® Personal Risk Transfer & Underwriting Desk
+                    </h5>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Protect your human capital and balance sheet against catastrophic, non-retained life liabilities.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {/* Own-Occ Disability */}
+                  {(() => {
+                    const hasDisability = state.insurance.some((i) => i.category === 'DISABILITY_OWN_OCC' && i.isActive);
+                    return (
+                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300">
+                              Human Capital
+                            </span>
+                            <span className="text-xs font-bold text-white">$65/mo</span>
+                          </div>
+                          <h6 className="font-bold text-xs text-white mt-1">Own-Occupation Disability Policy</h6>
+                          <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                            Replaces 60% of gross salary if unable to perform your specific profession. Crucial for professionals.
+                          </p>
+                        </div>
+                        <div className="mt-3">
+                          {hasDisability ? (
+                            <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Policy Active</span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                state.insurance.push({
+                                  id: 'ins_disability_own_occ',
+                                  name: 'Own-Occupation Disability',
+                                  category: 'DISABILITY_OWN_OCC',
+                                  monthlyPremium: 65,
+                                  coverageDescription: 'Replaces 60% of monthly income on career disability.',
+                                  isActive: true,
+                                  deductible: 0,
+                                });
+                                state.totalXP += 100;
+                                soundFx.playCoin();
+                                onUpdateState({ ...state });
+                                showToast('Underwritten Own-Occupation Disability! Human capital fully insured!');
+                              }}
+                              className="w-full py-1.5 rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-[11px] cursor-pointer"
+                            >
+                              Underwrite Policy ($65/mo)
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Umbrella Liability */}
+                  {(() => {
+                    const hasUmbrella = state.insurance.some((i) => i.category === 'UMBRELLA' && i.isActive);
+                    return (
+                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">
+                              Asset Shield
+                            </span>
+                            <span className="text-xs font-bold text-white">$25/mo</span>
+                          </div>
+                          <h6 className="font-bold text-xs text-white mt-1">$2,000,000 Personal Umbrella Policy</h6>
+                          <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                            Excess personal liability covering beyond auto/renters limits against catastrophic lawsuits.
+                          </p>
+                        </div>
+                        <div className="mt-3">
+                          {hasUmbrella ? (
+                            <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Policy Active</span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                state.insurance.push({
+                                  id: 'ins_umbrella_2m',
+                                  name: '$2M Personal Umbrella',
+                                  category: 'UMBRELLA',
+                                  monthlyPremium: 25,
+                                  coverageDescription: '$2,000,000 excess personal liability protection.',
+                                  isActive: true,
+                                  deductible: 0,
+                                });
+                                state.totalXP += 100;
+                                soundFx.playCoin();
+                                onUpdateState({ ...state });
+                                showToast('Underwritten $2M Umbrella Liability! Net worth shielded from legal shocks!');
+                              }}
+                              className="w-full py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-bold text-[11px] cursor-pointer"
+                            >
+                              Underwrite Policy ($25/mo)
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
             </div>
           )}
 
@@ -1223,8 +1345,49 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
             </div>
           )}
 
-          {/* 15. Fallback for any other building */}
-          {!['BANK', 'STOCK_EXCHANGE', 'AUTO_DEALER', 'RENTAL_PROPERTY', 'SUPERSTORE', 'HOME', 'CAREER_TOWER', 'CAFE', 'TOWN_HALL', 'UNIVERSITY', 'CLINIC', 'REAL_ESTATE', 'CRYPTO_LOUNGE', 'SHADY_ALLEY'].includes(building.type) && (
+          {/* 15. TAX OFFICE */}
+          {building.type === 'TAX_OFFICE' && (
+            <TaxOfficeInterior
+              building={building}
+              state={state}
+              onUpdateState={onUpdateState}
+              showToast={showToast}
+            />
+          )}
+
+          {/* 16. BOND PIT */}
+          {building.type === 'BOND_PIT' && (
+            <BondPitInterior
+              building={building}
+              state={state}
+              onUpdateState={onUpdateState}
+              showToast={showToast}
+            />
+          )}
+
+          {/* 17. WEALTH ADVISORY / FAMILY OFFICE */}
+          {building.type === 'WEALTH_ADVISORY' && (
+            <WealthAdvisoryInterior
+              building={building}
+              state={state}
+              onUpdateState={onUpdateState}
+              showToast={showToast}
+              onOpenLegacyModal={onOpenLegacyModal}
+            />
+          )}
+
+          {/* 18. TECH INCUBATOR */}
+          {building.type === 'TECH_INCUBATOR' && (
+            <TechIncubatorInterior
+              building={building}
+              state={state}
+              onUpdateState={onUpdateState}
+              showToast={showToast}
+            />
+          )}
+
+          {/* 19. Fallback for any other building */}
+          {!['BANK', 'STOCK_EXCHANGE', 'AUTO_DEALER', 'RENTAL_PROPERTY', 'SUPERSTORE', 'HOME', 'CAREER_TOWER', 'CAFE', 'TOWN_HALL', 'UNIVERSITY', 'CLINIC', 'REAL_ESTATE', 'CRYPTO_LOUNGE', 'SHADY_ALLEY', 'TAX_OFFICE', 'BOND_PIT', 'WEALTH_ADVISORY', 'TECH_INCUBATOR'].includes(building.type) && (
             <div className="p-8 text-center space-y-4">
               <div className="text-5xl">{building.icon}</div>
               <h3 className="text-xl font-bold text-white">{building.name}</h3>
