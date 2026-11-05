@@ -25,13 +25,13 @@ export const CampaignStoryModal: React.FC<CampaignStoryModalProps> = ({
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                 Campaign Questline
               </span>
-              <span className="text-xs text-slate-400 font-mono">6 Chapters to Total Freedom</span>
+              <span className="text-xs text-slate-400 font-mono">12 Chapters • 4 Acts to Total Freedom</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-1">
               The Path to Financial Independence
             </h2>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">✕</button>
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer">✕</button>
         </div>
 
         {/* Chapters list */}
@@ -58,9 +58,16 @@ export const CampaignStoryModal: React.FC<CampaignStoryModalProps> = ({
                       {isLocked ? '🔒' : ch.icon}
                     </div>
                     <div>
-                      <span className="text-[10px] font-mono uppercase font-bold text-slate-400">
-                        Chapter {ch.chapter}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono uppercase font-bold text-slate-400">
+                          Chapter {ch.chapter}
+                        </span>
+                        {ch.actTitle && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-amber-400">
+                            {ch.actTitle}
+                          </span>
+                        )}
+                      </div>
                       <h4 className="font-extrabold text-base text-white">{ch.title}</h4>
                       <p className="text-xs text-slate-400">{ch.subtitle}</p>
                     </div>

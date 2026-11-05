@@ -1,5 +1,6 @@
 import { InteriorRoom, InteriorStation } from '../world/interiorData';
 import { PlayerEntity } from './entityRenderer';
+import { getAvatarVisualSpec, renderPlayerSprite } from './avatarRenderer';
 
 const TILE = 40;
 
@@ -273,58 +274,32 @@ function renderInteriorPlayer(
   py: number,
   player: PlayerEntity
 ) {
-  // Shadow
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-  ctx.beginPath();
-  ctx.ellipse(px, py + 14, 12, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
+  const visualSpec = getAvatarVisualSpec(player.avatarEmoji, player.archetypeId);
 
-  // Walk Bob
-  const bob = player.isMoving ? Math.sin(player.walkFrame * 0.8) * 3 : 0;
-  const legOffset = player.isMoving ? Math.sin(player.walkFrame * 0.8) * 5 : 0;
-
-  // Legs
-  ctx.fillStyle = '#0f172a';
-  ctx.fillRect(px - 6, py + 6 + legOffset, 4, 8);
-  ctx.fillRect(px + 2, py + 6 - legOffset, 4, 8);
-
-  // Torso
-  ctx.fillStyle = player.shirtColor || '#10b981';
-  ctx.beginPath();
-  ctx.roundRect(px - 10, py - 10 + bob, 20, 18, 5);
-  ctx.fill();
-
-  // Head
-  ctx.fillStyle = '#fed7aa';
-  ctx.beginPath();
-  ctx.arc(px, py - 16 + bob, 10, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Hair / Cap
-  ctx.fillStyle = '#3b82f6';
-  ctx.beginPath();
-  ctx.arc(px, py - 20 + bob, 9, Math.PI, Math.PI * 2);
-  ctx.fill();
-
-  // Eyes
-  ctx.fillStyle = '#0f172a';
-  if (player.direction === 'down') {
-    ctx.fillRect(px - 4, py - 16 + bob, 2, 3);
-    ctx.fillRect(px + 2, py - 16 + bob, 2, 3);
-  } else if (player.direction === 'left') {
-    ctx.fillRect(px - 7, py - 16 + bob, 2, 3);
-  } else if (player.direction === 'right') {
-    ctx.fillRect(px + 5, py - 16 + bob, 2, 3);
-  }
+  renderPlayerSprite(
+    ctx,
+    px,
+    py,
+    player.direction,
+    player.isMoving,
+    player.walkFrame,
+    visualSpec
+  );
 
   // Name Tag
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 1.2;
+  const tagText = `${player.avatarEmoji} ${player.name}`;
+  const tagWidth = ctx.measureText(tagText).width + 16;
   ctx.beginPath();
-  ctx.roundRect(px - 30, py - 38, 60, 14, 4);
+  ctx.roundRect(px - tagWidth / 2, py - 46, tagWidth, 15, 4);
   ctx.fill();
+  ctx.stroke();
+
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 8px sans-serif';
-  ctx.fillText(player.name, px, py - 28);
+  ctx.font = 'bold 8.5px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(tagText, px, py - 35);
 }
 
 function renderInteriorLighting(

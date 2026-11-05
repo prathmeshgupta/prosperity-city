@@ -229,4 +229,103 @@ export const BUILDINGS: BuildingEntrance[] = [
     type: 'SHADY_ALLEY',
     description: 'Encounter street scammers pitching get-rich-quick Ponzi schemes and learn how to spot red flags.',
   },
+
+  // 14. Wealth Advisory Tower (Financial District North)
+  {
+    id: 'bldg_wealth_advisory',
+    name: 'Pinnacle Wealth Management & Family Office',
+    subtitle: 'Estate Planning, Revocable Trusts & Tax Shields',
+    district: 'Financial District',
+    icon: '🏛️',
+    color: '#38BDF8',
+    tileX: 41,
+    tileY: 5,
+    type: 'BANK',
+    description: 'Establish generational family trusts, structure estate transfer documents, and optimize high-net-worth tax strategies.',
+  },
+
+  // 15. Silicon Tech Incubator & Startup Lab (Tech Quarter North)
+  {
+    id: 'bldg_tech_incubator',
+    name: 'Silicon Forge AI Incubator',
+    subtitle: 'Venture Capital, Seed Rounds & Startup Equity',
+    district: 'Innovation Park',
+    icon: '🚀',
+    color: '#818CF8',
+    tileX: 16,
+    tileY: 5,
+    type: 'CAREER_TOWER',
+    description: 'Angel investing, seed-stage equity grants, and technical salary ladders for high-growth tech entrepreneurs.',
+  },
+
+  // 16. Treasury Bond Trading Desk
+  {
+    id: 'bldg_bond_pit',
+    name: 'Federal Treasury & Municipal Bond Desk',
+    subtitle: 'Fixed-Income Yields, TIPS & Bond Ladders',
+    district: 'Financial District',
+    icon: '📜',
+    color: '#34D399',
+    tileX: 51,
+    tileY: 5,
+    type: 'STOCK_EXCHANGE',
+    description: 'Lock in guaranteed 5.2% treasury yields, build bond ladders, and hedge against stock market volatility.',
+  },
+
+  // 17. Prosperity Tax & IRS Records Office
+  {
+    id: 'bldg_tax_office',
+    name: 'City Tax & Accounting Bureau',
+    subtitle: 'Standard Deductions, Itemizing & Tax-Loss Harvesting',
+    district: 'Civic Center',
+    icon: '📑',
+    color: '#F43F5E',
+    tileX: 28,
+    tileY: 14,
+    type: 'TOWN_HALL',
+    description: 'Audit your annual returns, harvest investment tax losses, and claim eligible education and business deductions.',
+  },
+
+  // 18. Pulse Fitness & Longevity Studio
+  {
+    id: 'bldg_fitness_center',
+    name: 'Pulse Fitness & Wellness Gym',
+    subtitle: 'Vitality, Preventative Health & Longevity Habits',
+    district: 'Central Promenade',
+    icon: '💪',
+    color: '#F97316',
+    tileX: 46,
+    tileY: 26,
+    type: 'CLINIC',
+    description: 'Invest in physical fitness and sleep hygiene: +25% Health bonus and lower lifetime healthcare costs.',
+  },
+
+  // 19. The Summit FIRE Penthouse Tower
+  {
+    id: 'bldg_luxury_penthouse',
+    name: 'The Summit FIRE Sky Penthouse',
+    subtitle: 'Trophy Residence • $1,200,000 Luxury Estate',
+    district: 'Residential Quarter',
+    icon: '👑',
+    color: '#FBBF24',
+    tileX: 48,
+    tileY: 44,
+    type: 'RENTAL_PROPERTY',
+    description: 'The ultimate endgame residential real estate acquisition. Requires $1.2M capital for complete financial royalty status.',
+    price: 1200000,
+  },
+
+  // 20. FreshLife Organic Market
+  {
+    id: 'bldg_farmers_market',
+    name: 'FreshLife Organic Co-op Market',
+    subtitle: 'Whole Foods, Clean Nutrition & Smart Unit Pricing',
+    district: 'Commercial Boulevard',
+    icon: '🥑',
+    color: '#4ADE80',
+    tileX: 16,
+    tileY: 26,
+    type: 'SUPERSTORE',
+    description: 'Buy bulk organic staples, compare per-ounce unit prices, and keep your body energized for career execution.',
+  },
 ];

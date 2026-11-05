@@ -71,9 +71,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     name: state.character.name,
     avatarEmoji: state.character.avatar,
     shirtColor: '#10b981',
+    archetypeId: state.character.archetypeId,
     vehicle: 'FOOT',
     hasPet: false,
   });
+
+  // Synchronize player entity immediately when character changes (avatar, name, archetype)
+  useEffect(() => {
+    setPlayer((prev) => ({
+      ...prev,
+      name: state.character.name,
+      avatarEmoji: state.character.avatar,
+      archetypeId: state.character.archetypeId,
+    }));
+  }, [state.character.name, state.character.avatar, state.character.archetypeId]);
 
   const [npcs, setNpcs] = useState<NPC[]>(INITIAL_NPCS);
   const [collectibles, setCollectibles] = useState<Collectible[]>(INITIAL_COLLECTIBLES);
@@ -128,15 +139,25 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     if (!currentChapter) return null;
     switch (currentChapter.chapter) {
       case 1:
-        return BUILDINGS.find((b) => b.id === 'bldg_career_tower') || null;
       case 2:
-      case 3:
         return BUILDINGS.find((b) => b.id === 'bldg_bank') || null;
+      case 3:
+        return BUILDINGS.find((b) => b.id === 'bldg_superstore') || null;
       case 4:
-        return BUILDINGS.find((b) => b.id === 'bldg_stock_exchange') || null;
+        return BUILDINGS.find((b) => b.id === 'bldg_career_tower') || null;
       case 5:
-        return BUILDINGS.find((b) => b.id === 'bldg_duplex_property') || null;
       case 6:
+        return BUILDINGS.find((b) => b.id === 'bldg_stock_exchange') || null;
+      case 7:
+        return BUILDINGS.find((b) => b.id === 'bldg_cafe') || null;
+      case 8:
+        return BUILDINGS.find((b) => b.id === 'bldg_duplex_property') || null;
+      case 9:
+        return BUILDINGS.find((b) => b.id === 'bldg_university') || null;
+      case 10:
+        return BUILDINGS.find((b) => b.id === 'bldg_wealth_advisory') || null;
+      case 11:
+      case 12:
         return BUILDINGS.find((b) => b.id === 'bldg_town_hall') || null;
       default:
         return BUILDINGS.find((b) => b.id === 'bldg_bank') || null;

@@ -35,23 +35,24 @@ export interface NPC {
 }
 
 export const INITIAL_NPCS: NPC[] = [
+  // 1. Banker Sterling outside First Prosperity Bank
   {
     id: 'npc_sterling',
     name: 'Banker Sterling',
     title: 'Senior Vice President of Prosperity Bank',
     avatar: '🤵',
     color: '#10B981',
-    x: 27 * 40,
+    x: 36 * 40 - 20,
     y: 11 * 40,
     direction: 'down',
     isWandering: true,
-    wanderRadius: 100,
-    originX: 27 * 40,
+    wanderRadius: 70,
+    originX: 36 * 40 - 20,
     originY: 11 * 40,
     speechBubble: 'Keep 3-6 months in safe cash!',
     dialogue: {
       portrait: '🤵',
-      greeting: 'Welcome to First Prosperity Bank! I tell all my clients: the foundation of wealth is not picking hot stocks—it is having an Emergency Fund that lets you sleep peacefully.',
+      greeting: 'Welcome to First Prosperity Bank! The foundation of wealth is having an emergency fund that lets you sleep at night without worrying about bills.',
       choices: [
         {
           text: 'Why not put my emergency fund into stocks?',
@@ -68,19 +69,21 @@ export const INITIAL_NPCS: NPC[] = [
       ],
     },
   },
+
+  // 2. Aunt Penny in Central Town Plaza
   {
     id: 'npc_penny',
     name: 'Aunt Penny',
     title: 'Frugal Sage of the Park',
     avatar: '👵',
     color: '#F59E0B',
-    x: 23 * 40,
-    y: 18 * 40,
+    x: 28 * 40,
+    y: 20 * 40,
     direction: 'right',
     isWandering: true,
-    wanderRadius: 120,
-    originX: 23 * 40,
-    originY: 18 * 40,
+    wanderRadius: 90,
+    originX: 28 * 40,
+    originY: 20 * 40,
     speechBubble: 'A penny saved is a dollar compounding!',
     dialogue: {
       portrait: '👵',
@@ -104,23 +107,25 @@ export const INITIAL_NPCS: NPC[] = [
       ],
     },
   },
+
+  // 3. Trader Chad outside Wall Street Stock Exchange
   {
     id: 'npc_chad',
     name: 'Trader Chad',
     title: 'Exchange Veteran & Index Advocate',
     avatar: '📈',
     color: '#06B6D4',
-    x: 37 * 40,
+    x: 46 * 40 - 20,
     y: 11 * 40,
     direction: 'left',
     isWandering: true,
     wanderRadius: 80,
-    originX: 37 * 40,
+    originX: 46 * 40 - 20,
     originY: 11 * 40,
     speechBubble: 'DCA and chill beats 90% of hedge funds!',
     dialogue: {
       portrait: '📈',
-      greeting: 'Yo! Everyone tries to time the market bottoms and tops. I used to be a day-trader with three ulcer medications. Now? I just Dollar-Cost Average into broad index funds every payday and sleep like a baby.',
+      greeting: 'Yo! Everyone tries to time market bottoms and tops. I used to day-trade on six screens. Now? I just Dollar-Cost Average into broad index funds every payday and sleep like a baby.',
       choices: [
         {
           text: 'What is Dollar-Cost Averaging (DCA)?',
@@ -129,7 +134,7 @@ export const INITIAL_NPCS: NPC[] = [
           xpBonus: 30,
         },
         {
-          text: 'What do you think of hot stock tips on TikTok?',
+          text: 'What do you think of hot stock tips on social media?',
           response: 'By the time an influencer makes a video about a stock, they already bought it cheaper and are looking for retail suckers to buy their bags. Don’t gamble your future on social media noise!',
           educationalLesson: 'Social media hype is almost always late-stage exit liquidity.',
           xpBonus: 25,
@@ -137,19 +142,21 @@ export const INITIAL_NPCS: NPC[] = [
       ],
     },
   },
+
+  // 4. Shady Sam in South Back Alley
   {
     id: 'npc_sam',
     name: 'Shady Sam',
     title: 'The Alley Hustler',
     avatar: '🕶️',
     color: '#64748B',
-    x: 41 * 40,
-    y: 29 * 40,
+    x: 55 * 40,
+    y: 41 * 40,
     direction: 'up',
     isWandering: false,
     wanderRadius: 0,
-    originX: 41 * 40,
-    originY: 29 * 40,
+    originX: 55 * 40,
+    originY: 41 * 40,
     speechBubble: 'Psst... guaranteed 50% returns, kid!',
     dialogue: {
       portrait: '🕶️',
@@ -169,6 +176,122 @@ export const INITIAL_NPCS: NPC[] = [
           happinessBonus: -10,
           educationalLesson: 'A painful lesson: once cash is sent to unverified anonymous actors, it is gone forever.',
           xpBonus: 10,
+        },
+      ],
+    },
+  },
+
+  // 5. Dr. Shield outside Guardian Health & Insurance
+  {
+    id: 'npc_shield',
+    name: 'Dr. Shield',
+    title: 'Chief Medical Officer & HSA Advocate',
+    avatar: '🩺',
+    color: '#14B8A6',
+    x: 38 * 40 + 20,
+    y: 27 * 40,
+    direction: 'left',
+    isWandering: true,
+    wanderRadius: 60,
+    originX: 38 * 40 + 20,
+    originY: 27 * 40,
+    speechBubble: 'HSA is the ultimate triple-tax shield!',
+    dialogue: {
+      portrait: '🩺',
+      greeting: 'Good day! Your physical health and your financial health are twins. A catastrophic medical bill without insurance is the #1 cause of individual bankruptcy in America.',
+      choices: [
+        {
+          text: 'What makes a Health Savings Account (HSA) so special?',
+          response: 'It has the legendary Triple Tax Advantage: Contributions are tax-deductible going in, investments grow 100% tax-free, and withdrawals for medical expenses are completely tax-free forever!',
+          educationalLesson: 'An HSA is the only account in the US tax code that offers triple tax exemption.',
+          xpBonus: 35,
+        },
+      ],
+    },
+  },
+
+  // 6. Realtor Rachel outside Prosperity Realty
+  {
+    id: 'npc_rachel',
+    name: 'Realtor Rachel',
+    title: 'Managing Broker & Cashflow Strategist',
+    avatar: '🏘️',
+    color: '#6366F1',
+    x: 46 * 40,
+    y: 39 * 40,
+    direction: 'up',
+    isWandering: true,
+    wanderRadius: 60,
+    originX: 46 * 40,
+    originY: 39 * 40,
+    speechBubble: 'Cashflow over appreciation!',
+    dialogue: {
+      portrait: '🏘️',
+      greeting: 'Welcome to Real Estate Row! Whether you buy your first starter home or house-hack a duplex, real estate allows you to control a large appreciating asset with bank leverage.',
+      choices: [
+        {
+          text: 'What is "House Hacking"?',
+          response: 'Buying a small multi-family property (like a duplex), living in one unit, and renting out the other. The tenant rent pays your entire mortgage so you live virtually rent-free!',
+          educationalLesson: 'Eliminating your primary housing expense accelerates your savings rate to 60%+.',
+          xpBonus: 35,
+        },
+      ],
+    },
+  },
+
+  // 7. Executive Evelyn outside Apex Career Tower
+  {
+    id: 'npc_evelyn',
+    name: 'Executive Evelyn',
+    title: 'VP of Talent & Corporate Mentor',
+    avatar: '💼',
+    color: '#3B82F6',
+    x: 22 * 40 - 20,
+    y: 11 * 40,
+    direction: 'right',
+    isWandering: true,
+    wanderRadius: 70,
+    originX: 22 * 40 - 20,
+    originY: 11 * 40,
+    speechBubble: 'Your career is your largest capital asset!',
+    dialogue: {
+      portrait: '💼',
+      greeting: 'Hello there! Don’t just pinch pennies on $4 coffees—focus on the offensive side of wealth. Boosting your salary from $50k to $100k gives you $50k of fresh compounding fuel every single year.',
+      choices: [
+        {
+          text: 'How should I ask for a salary raise?',
+          response: 'Never ask based on your personal bills! Prepare a one-page "Value Delivered" dossier demonstrating revenue generated, time saved, or projects led, and benchmark against market compensation data.',
+          educationalLesson: 'Salaries are based on market value and demonstrated impact, not personal financial need.',
+          xpBonus: 40,
+        },
+      ],
+    },
+  },
+
+  // 8. Mechanic Mike outside Prestige Motors
+  {
+    id: 'npc_mike',
+    name: 'Mechanic Mike',
+    title: 'Master Automotive Technician',
+    avatar: '🚗',
+    color: '#EF4444',
+    x: 10 * 40 + 20,
+    y: 39 * 40,
+    direction: 'left',
+    isWandering: true,
+    wanderRadius: 60,
+    originX: 10 * 40 + 20,
+    originY: 39 * 40,
+    speechBubble: 'Car payments drain more wealth than lattes!',
+    dialogue: {
+      portrait: '🚗',
+      greeting: 'Hey friend! Look around this lot. The average American spends $700+ a month on a 7-year auto loan for an SUV that drops 20% in value the moment it leaves the lot. Buy reliable, pay cash or keep payments tiny!',
+      choices: [
+        {
+          text: 'Is leasing a car ever a good financial decision?',
+          response: 'Almost never for consumers! You are paying for the steepest depreciation years of the vehicle and walk away with zero equity at the end of 36 months.',
+          educationalLesson: 'Vehicles are depreciating tools, not wealth-generating assets.',
+          xpBonus: 30,
         },
       ],
     },

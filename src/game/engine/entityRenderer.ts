@@ -1,5 +1,6 @@
 import { NPC } from '../entities/NPC';
 import { Collectible } from '../entities/Collectible';
+import { getAvatarVisualSpec, renderPlayerSprite, AvatarVisualSpec } from './avatarRenderer';
 
 export interface PlayerEntity {
   x: number; // world px
@@ -10,6 +11,7 @@ export interface PlayerEntity {
   name: string;
   avatarEmoji: string;
   shirtColor: string;
+  archetypeId?: string;
   vehicle?: 'FOOT' | 'BICYCLE' | 'CAR';
   hasPet?: boolean;
 }
@@ -226,67 +228,32 @@ export function renderEntities(
     ctx.stroke();
   }
 
-  // Player Shadow (if walking)
-  if (!player.vehicle || player.vehicle === 'FOOT') {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    ctx.beginPath();
-    ctx.ellipse(playerScreenX, playerScreenY + 16, 14, 6, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  // Get dynamic visual specification matching avatar emoji & archetype
+  const visualSpec = getAvatarVisualSpec(player.avatarEmoji, player.archetypeId);
 
-  // Walk Cycle Bob
-  const walkBob = player.isMoving ? Math.sin(player.walkFrame * 0.8) * 3 : 0;
-  const legOffset = player.isMoving ? Math.sin(player.walkFrame * 0.8) * 6 : 0;
-
-  // Legs / Shoes (only if on foot)
-  if (!player.vehicle || player.vehicle === 'FOOT') {
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(playerScreenX - 7, playerScreenY + 8 + legOffset, 5, 8);
-    ctx.fillRect(playerScreenX + 2, playerScreenY + 8 - legOffset, 5, 8);
-  }
-
-  // Torso / Jacket
-  ctx.fillStyle = player.shirtColor || '#10b981';
-  ctx.beginPath();
-  ctx.roundRect(playerScreenX - 11, playerScreenY - 10 + walkBob, 22, 20, 6);
-  ctx.fill();
-
-  // Head
-  ctx.fillStyle = '#fed7aa'; // warm skin tone
-  ctx.beginPath();
-  ctx.arc(playerScreenX, playerScreenY - 18 + walkBob, 11, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Hair / Cap
-  ctx.fillStyle = '#3b82f6';
-  ctx.beginPath();
-  ctx.arc(playerScreenX, playerScreenY - 22 + walkBob, 10, Math.PI, Math.PI * 2);
-  ctx.fill();
-
-  // Face directional eyes
-  ctx.fillStyle = '#0f172a';
-  if (player.direction === 'down') {
-    ctx.fillRect(playerScreenX - 4, playerScreenY - 18 + walkBob, 2.5, 3.5);
-    ctx.fillRect(playerScreenX + 2, playerScreenY - 18 + walkBob, 2.5, 3.5);
-  } else if (player.direction === 'up') {
-    // looking away
-  } else if (player.direction === 'left') {
-    ctx.fillRect(playerScreenX - 8, playerScreenY - 18 + walkBob, 2.5, 3.5);
-  } else if (player.direction === 'right') {
-    ctx.fillRect(playerScreenX + 6, playerScreenY - 18 + walkBob, 2.5, 3.5);
-  }
+  // Render stylized procedural character sprite
+  renderPlayerSprite(
+    ctx,
+    playerScreenX,
+    playerScreenY,
+    player.direction,
+    player.isMoving,
+    player.walkFrame,
+    visualSpec
+  );
 
   // Name Tag & Title above player
   ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
   ctx.strokeStyle = '#10b981';
   ctx.lineWidth = 1.5;
-  const tagWidth = ctx.measureText(player.name).width + 18;
+  const tagText = `${player.avatarEmoji} ${player.name}`;
+  const tagWidth = ctx.measureText(tagText).width + 18;
   ctx.beginPath();
-  ctx.roundRect(playerScreenX - tagWidth / 2, playerScreenY - 46, tagWidth, 16, 5);
+  ctx.roundRect(playerScreenX - tagWidth / 2, playerScreenY - 48, tagWidth, 16, 5);
   ctx.fill();
   ctx.stroke();
 
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 9px "Plus Jakarta Sans", sans-serif';
-  ctx.fillText(player.name, playerScreenX, playerScreenY - 34);
+  ctx.fillText(tagText, playerScreenX, playerScreenY - 36);
 }
