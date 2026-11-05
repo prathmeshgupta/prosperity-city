@@ -24,7 +24,14 @@ import {
   ShoppingCart,
   Building2,
   Percent,
-  Crown
+  Crown,
+  BookOpen,
+  Award,
+  Activity,
+  ShieldAlert,
+  Lock,
+  Scale,
+  Key
 } from 'lucide-react';
 
 interface RPGBuildingInteriorProps {
@@ -797,8 +804,427 @@ export const RPGBuildingInterior: React.FC<RPGBuildingInteriorProps> = ({
             </div>
           )}
 
-          {/* Fallback */}
-          {!['BANK', 'STOCK_EXCHANGE', 'AUTO_DEALER', 'RENTAL_PROPERTY', 'SUPERSTORE', 'HOME', 'CAREER_TOWER', 'CAFE', 'TOWN_HALL'].includes(building.type) && (
+          {/* 10. UNIVERSITY INTERIOR */}
+          {building.type === 'UNIVERSITY' && (
+            <div className="space-y-5">
+              <div className="p-4 rounded-2xl bg-purple-950/20 border border-purple-800/40 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl">🎓</span>
+                  <div>
+                    <h4 className="font-bold text-sm text-white">Dean Cooper's Academic Office</h4>
+                    <p className="text-xs text-slate-300 mt-1">
+                      "Investing in yourself yields the highest compounded return on earth. Complete financial certifications and quiz challenges to permanently boost your career salary!"
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Academic Certification 1: Data Analytics */}
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <BookOpen className="w-4 h-4 text-purple-400" />
+                      <span>Data Analytics & Financial Modeling</span>
+                    </span>
+                    <span className="text-xs font-mono text-emerald-400 font-bold">+$8,000/yr Salary</span>
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Learn Python, SQL, and financial modeling. Unlocks immediate high-impact corporate promotion bonuses.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (state.cash < 1000) {
+                        showToast('Requires $1,000 tuition cash');
+                        return;
+                      }
+                      soundFx.playLevelUp();
+                      state.cash -= 1000;
+                      state.character.annualSalary += 8000;
+                      state.totalXP += 150;
+                      onUpdateState({ ...state });
+                      showToast('🎓 Completed Data Analytics Cert! Annual Salary +$8,000/yr!');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Enroll in Certificate ($1,000 Tuition)
+                  </button>
+                </div>
+
+                {/* Academic Certification 2: Real Estate License */}
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Award className="w-4 h-4 text-amber-400" />
+                      <span>Real Estate Broker & Escrow License</span>
+                    </span>
+                    <span className="text-xs font-mono text-emerald-400 font-bold">+$6,000/yr + 150 XP</span>
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Master commercial leases, tenant screening, property appraisals, and deed transfers.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (state.cash < 1500) {
+                        showToast('Requires $1,500 tuition cash');
+                        return;
+                      }
+                      soundFx.playLevelUp();
+                      state.cash -= 1500;
+                      state.character.annualSalary += 6000;
+                      state.totalXP += 200;
+                      onUpdateState({ ...state });
+                      showToast('📜 Earned Real Estate Broker License! Salary +$6,000/yr!');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Earn Broker License ($1,500 Tuition)
+                  </button>
+                </div>
+              </div>
+
+              {/* Financial Quiz Scholarship Challenge */}
+              <div className="p-4 rounded-xl bg-slate-900/90 border border-purple-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="font-bold text-xs text-purple-300 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                    <span>Dean's Academic Scholarship Quiz: The Rule of 72</span>
+                  </h5>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                    Reward: +$300 Cash • +100 XP
+                  </span>
+                </div>
+                <p className="text-xs text-slate-200">
+                  "If your investment portfolio earns an <strong>8% annual return</strong>, approximately how many years does it take for your money to double under the Rule of 72?"
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => {
+                      soundFx.playTwistAlert();
+                      showToast('Incorrect: 72 / 8 = 9 years! Try again.');
+                    }}
+                    className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer text-center"
+                  >
+                    12 Years
+                  </button>
+                  <button
+                    onClick={() => {
+                      soundFx.playLevelUp();
+                      state.cash += 300;
+                      state.totalXP += 100;
+                      onUpdateState({ ...state });
+                      showToast('🎉 Correct! 72 / 8% = 9 Years to double! Awarded +$300 scholarship!');
+                    }}
+                    className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 text-xs font-semibold cursor-pointer text-center border border-slate-700 hover:border-emerald-500"
+                  >
+                    9 Years (Correct)
+                  </button>
+                  <button
+                    onClick={() => {
+                      soundFx.playTwistAlert();
+                      showToast('Incorrect: 72 / 8 = 9 years! Try again.');
+                    }}
+                    className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer text-center"
+                  >
+                    6 Years
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 11. CLINIC INTERIOR */}
+          {building.type === 'CLINIC' && (
+            <div className="space-y-5">
+              <div className="p-4 rounded-2xl bg-teal-950/20 border border-teal-800/40 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl">🩺</span>
+                  <div>
+                    <h4 className="font-bold text-sm text-white">Dr. Shield's Wellness Clinic</h4>
+                    <p className="text-xs text-slate-300 mt-1">
+                      "Preventative care is the highest-ROI investment for human capital. Maintain insurance to protect against catastrophic bankruptcies, and keep health near 100%!"
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Preventative Checkup */}
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400">Current Health:</span>
+                    <span className="font-mono font-bold text-emerald-400">{state.character.health}%</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400">Current Happiness:</span>
+                    <span className="font-mono font-bold text-cyan-400">{state.character.happiness}%</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (state.cash < 150) {
+                        showToast('Insufficient cash for checkup ($150)');
+                        return;
+                      }
+                      soundFx.playLevelUp();
+                      state.cash -= 150;
+                      state.character.health = 100;
+                      state.character.happiness = Math.min(100, state.character.happiness + 15);
+                      state.burnout = 0;
+                      onUpdateState({ ...state });
+                      showToast('🏥 Annual Checkup Complete! Health restored to 100%, Burnout reset to 0%!');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Annual Wellness Exam ($150)
+                  </button>
+                </div>
+
+                {/* Pulse Fitness Gym Membership */}
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400">Fitness Pass:</span>
+                    <span className="font-mono font-bold text-amber-400">Pulse Gym</span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Daily exercise boosts daily energy, builds cardiac longevity, and reduces healthcare costs.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (state.cash < 50) {
+                        showToast('Requires $50 monthly cash');
+                        return;
+                      }
+                      soundFx.playCoin();
+                      state.cash -= 50;
+                      state.character.health = Math.min(100, state.character.health + 10);
+                      state.totalXP += 35;
+                      onUpdateState({ ...state });
+                      showToast('💪 Completed gym workout! Health +10%, XP +35!');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 font-bold text-xs border border-teal-500/30 transition-colors cursor-pointer"
+                  >
+                    Day Pass Workout ($50)
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 12. REAL ESTATE INTERIOR */}
+          {building.type === 'REAL_ESTATE' && (
+            <div className="space-y-5">
+              <div className="p-4 rounded-2xl bg-indigo-950/20 border border-indigo-800/40 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl">📜</span>
+                  <div>
+                    <h4 className="font-bold text-sm text-white">Prosperity Realty & Escrow</h4>
+                    <p className="text-xs text-slate-300 mt-1">
+                      "Real estate creates wealth through 4 wealth engines simultaneously: Cashflow, Principal Paydown, Tax Depreciation, and Long-Term Appreciation."
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 1% Rule Analyzer */}
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <Scale className="w-4 h-4 text-indigo-400" />
+                    <span>The 1% Rule Property Screener</span>
+                  </span>
+                  <div className="p-3 rounded-lg bg-slate-950/80 font-mono text-xs space-y-1 text-slate-300">
+                    <div>Duplex Price: <strong className="text-white">$320,000</strong></div>
+                    <div>Monthly Rents: <strong className="text-emerald-400">$2,400/mo</strong></div>
+                    <div>Rent-to-Price Ratio: <strong className="text-amber-400">0.75%</strong> (Healthy Cashflow)</div>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    A ratio above 0.7% - 1.0% generally produces positive net cashflow after property taxes, insurance, and maintenance reserves.
+                  </p>
+                </div>
+
+                {/* Suburban Duplex Listing Purchase */}
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400">Turnkey Suburban Duplex:</span>
+                    <span className="font-mono font-bold text-emerald-400">$320,000</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400">20% Down Payment:</span>
+                    <span className="font-mono font-bold text-white">$64,000</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const alreadyOwned = state.portfolio.some((p) => p.assetId === 're_suburban_duplex');
+                      if (alreadyOwned) {
+                        showToast('You already own this suburban duplex deed!');
+                        return;
+                      }
+                      if (state.cash < 64000) {
+                        showToast('Requires $64,000 cash for 20% down payment');
+                        return;
+                      }
+                      soundFx.playLevelUp();
+                      state.cash -= 64000;
+                      state.portfolio.push({
+                        assetId: 're_suburban_duplex',
+                        shares: 1,
+                        costBasis: 320000,
+                      });
+                      state.debts.push({
+                        id: `mortgage_${Date.now()}`,
+                        name: 'Duplex 30-Year Mortgage',
+                        category: 'MORTGAGE',
+                        principal: 256000,
+                        interestRate: 0.065,
+                        minimumMonthlyPayment: 1618,
+                        educationalTip: 'Tenants pay off this principal balance each month.',
+                      });
+                      state.totalXP += 500;
+                      onUpdateState({ ...state });
+                      showToast('🎉 Acquired Suburban Duplex! Collecting monthly tenant checks!');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Buy Duplex ($64,000 Down)
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 13. CRYPTO LOUNGE INTERIOR */}
+          {building.type === 'CRYPTO_LOUNGE' && (
+            <div className="space-y-5">
+              <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-800/40 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl">🪙</span>
+                  <div>
+                    <h4 className="font-bold text-sm text-white">Web3 & Crypto Pier Terminal</h4>
+                    <p className="text-xs text-slate-300 mt-1">
+                      "Crypto assets offer asymmetric upside but extreme volatility. Never invest money you need in the next 5 years, and always secure private keys in cold storage!"
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Hardware Cold Wallet */}
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400">Cold Storage Wallet:</span>
+                    <span className="font-mono font-bold text-emerald-400">Hardware Vault</span>
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    "Not your keys, not your coins." Self-custody eliminates exchange bankruptcy and phishing risks.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (state.cash < 150) {
+                        showToast('Insufficient cash ($150)');
+                        return;
+                      }
+                      soundFx.playLevelUp();
+                      state.cash -= 150;
+                      state.totalXP += 80;
+                      onUpdateState({ ...state });
+                      showToast('🔒 Hardware Wallet Configured! 100% Exchange Insolvency Protection!');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Buy Hardware Wallet ($150)
+                  </button>
+                </div>
+
+                {/* Staking Yield Terminal */}
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400">Proof-of-Stake Yield:</span>
+                    <span className="font-mono font-bold text-cyan-400">5.5% APY</span>
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Stake native crypto tokens to secure decentralized networks and collect protocol transaction rewards.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (state.cash < 500) {
+                        showToast('Requires at least $500 cash');
+                        return;
+                      }
+                      soundFx.playCoin();
+                      state.cash -= 500;
+                      state.emergencyFund += 500;
+                      state.totalXP += 60;
+                      onUpdateState({ ...state });
+                      showToast('🪙 Staked $500 in Proof-of-Stake Validator! Earning 5.5% APY!');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs border border-amber-500/30 transition-colors cursor-pointer"
+                  >
+                    Stake $500 (5.5% APY)
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 14. SHADY ALLEY INTERIOR */}
+          {building.type === 'SHADY_ALLEY' && (
+            <div className="space-y-5">
+              <div className="p-4 rounded-2xl bg-rose-950/20 border border-rose-800/40 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl">🕶️</span>
+                  <div>
+                    <h4 className="font-bold text-sm text-white">Shady Sam’s Dimly Lit Corner</h4>
+                    <p className="text-xs text-slate-300 mt-1">
+                      "Hey kid... want in on an exclusive secret offshore algorithm? Guaranteed 50% weekly yield with ZERO risk of loss. Just wire me $500!"
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-900/90 border border-rose-500/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4" />
+                    <span>Scam Detection Challenge: Find the 3 Red Flags</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                    Bounty: +$250 Cash • +150 XP
+                  </span>
+                </div>
+                <div className="space-y-1.5 text-xs text-slate-300">
+                  <div>1. ❌ <strong>"Guaranteed"</strong> high returns (Return is always tied to risk).</div>
+                  <div>2. ❌ <strong>"Zero Risk"</strong> claim (There is no such thing as zero risk).</div>
+                  <div>3. ❌ Unregistered anonymous offshore entity avoiding SEC oversight.</div>
+                </div>
+                <div className="pt-2 flex gap-3">
+                  <button
+                    onClick={() => {
+                      soundFx.playLevelUp();
+                      state.cash += 250;
+                      state.totalXP += 150;
+                      onUpdateState({ ...state });
+                      showToast('🚨 Reported Scam to SEC Whistleblower Bureau! Earned +$250 cash bounty!');
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Report Ponzi Scheme (Whistleblower Bounty)
+                  </button>
+                  <button
+                    onClick={() => {
+                      soundFx.playTwistAlert();
+                      showToast('You ignored the sketchy pitch and walked away with your wallet safe!');
+                    }}
+                    className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Walk Away
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 15. Fallback for any other building */}
+          {!['BANK', 'STOCK_EXCHANGE', 'AUTO_DEALER', 'RENTAL_PROPERTY', 'SUPERSTORE', 'HOME', 'CAREER_TOWER', 'CAFE', 'TOWN_HALL', 'UNIVERSITY', 'CLINIC', 'REAL_ESTATE', 'CRYPTO_LOUNGE', 'SHADY_ALLEY'].includes(building.type) && (
             <div className="p-8 text-center space-y-4">
               <div className="text-5xl">{building.icon}</div>
               <h3 className="text-xl font-bold text-white">{building.name}</h3>

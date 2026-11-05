@@ -16,7 +16,8 @@ import {
   ChevronRight,
   UserCheck,
   Clock,
-  Sliders
+  Sliders,
+  Gamepad2
 } from 'lucide-react';
 import { ProgressionSpeed, LifeFocus } from '../../types/game';
 
@@ -254,6 +255,33 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             <div className="flex items-center gap-2.5 text-xs text-slate-400 font-mono">
               <span className="text-amber-400 font-bold">🏆 Ultimate Win Condition:</span>
               <span>Reach <strong>$1,000,000 Net Worth</strong> or <strong>$4,000/mo Passive Income</strong> to ring the Freedom Bell!</span>
+            </div>
+
+            {/* Quick How to Play Controls Guide */}
+            <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-white uppercase tracking-wider">
+                <span className="flex items-center gap-2">
+                  <Gamepad2 className="w-4 h-4 text-emerald-400" />
+                  <span>How To Play & Controls</span>
+                </span>
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                  Keyboard & Touch Ready
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
+                  <span className="text-emerald-400 font-bold block mb-0.5">1. Move Your Citizen</span>
+                  <span className="text-slate-300">Use <strong>W, A, S, D</strong> or Arrow Keys, or tap anywhere on the street.</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
+                  <span className="text-cyan-400 font-bold block mb-0.5">2. Enter & Interact</span>
+                  <span className="text-slate-300">Press <strong>[E]</strong> or <strong>Space</strong> at buildings & NPCs. Follow Guided Compass!</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
+                  <span className="text-amber-400 font-bold block mb-0.5">3. Open Inventory</span>
+                  <span className="text-slate-300">Press <strong>[I]</strong> to open your Backpack & equip bicycles, cars, or pets.</span>
+                </div>
+              </div>
             </div>
           </div>
 

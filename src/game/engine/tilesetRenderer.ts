@@ -156,10 +156,12 @@ export function renderWorldMap(
     }
   }
 
-  // 2. Draw Environmental Features: Plaza Fountain, Trees, Park Benches, Wind Turbines
+  // 2. Draw Environmental Features: Plaza Fountain, Trees, Park Benches, Wind Turbines, Streetlamps & Traffic
   renderPlazaFountain(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
   renderCityGreeneryAndProps(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
+  renderStreetlampsAndGlow(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
   renderCleanEnergyWindmills(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
+  renderTrafficAndCruisingCars(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
 
   // 3. Draw All 13 Distinct Buildings with 2.5D Customized Architecture
   BUILDINGS.forEach((bldg) => {
@@ -352,6 +354,158 @@ function renderCityGreeneryAndProps(
     ctx.arc(screenX + 14, screenY + 8, 2, 0, Math.PI * 2);
     ctx.arc(screenX + 24, screenY + 12, 2, 0, Math.PI * 2);
     ctx.fill();
+  });
+}
+
+/**
+ * Animated Ambient Cruising Cars on Metropolitan Avenues
+ */
+function renderTrafficAndCruisingCars(
+  ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  cameraY: number,
+  canvasWidth: number,
+  canvasHeight: number
+) {
+  const mapWidthPx = MAP_WIDTH * TILE_SIZE;
+  const time = Date.now() / 1000;
+
+  const cars = [
+    // Avenue 1 Eastbound (y = 13.2)
+    { id: 'c1', color: '#facc15', roofColor: '#ca8a04', speed: 110, y: 13.2 * TILE_SIZE, offset: 200, dir: 1 },
+    { id: 'c2', color: '#0ea5e9', roofColor: '#0284c7', speed: 95, y: 13.2 * TILE_SIZE, offset: 1200, dir: 1 },
+    // Avenue 1 Westbound (y = 14.5)
+    { id: 'c3', color: '#ef4444', roofColor: '#b91c1c', speed: 105, y: 14.5 * TILE_SIZE, offset: 600, dir: -1 },
+    // Avenue 2 Eastbound (y = 29.2)
+    { id: 'c4', color: '#10b981', roofColor: '#047857', speed: 90, y: 29.2 * TILE_SIZE, offset: 400, dir: 1 },
+    // Avenue 2 Westbound (y = 30.5)
+    { id: 'c5', color: '#a855f7', roofColor: '#7e22ce', speed: 125, y: 30.5 * TILE_SIZE, offset: 900, dir: -1 },
+    // Avenue 3 Eastbound (y = 41.2)
+    { id: 'c6', color: '#f97316', roofColor: '#c2410c', speed: 100, y: 41.2 * TILE_SIZE, offset: 100, dir: 1 },
+  ];
+
+  cars.forEach((car) => {
+    let worldX: number;
+    if (car.dir === 1) {
+      worldX = ((time * car.speed + car.offset) % (mapWidthPx - 200)) + 100;
+    } else {
+      worldX = (mapWidthPx - 100) - ((time * car.speed + car.offset) % (mapWidthPx - 200));
+    }
+
+    const screenX = worldX - cameraX + canvasWidth / 2;
+    const screenY = car.y - cameraY + canvasHeight / 2;
+
+    // Frustum cull
+    if (screenX < -60 || screenX > canvasWidth + 60 || screenY < -40 || screenY > canvasHeight + 40) {
+      return;
+    }
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.beginPath();
+    ctx.ellipse(screenX + 16, screenY + 12, 18, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Car Body Chassis
+    ctx.fillStyle = car.color;
+    ctx.beginPath();
+    ctx.roundRect(screenX, screenY - 4, 32, 16, 4);
+    ctx.fill();
+
+    // Car Cabin / Roof
+    ctx.fillStyle = car.roofColor;
+    ctx.beginPath();
+    ctx.roundRect(screenX + 6, screenY - 7, 18, 14, 3);
+    ctx.fill();
+
+    // Windshield & Lights
+    ctx.fillStyle = '#bae6fd';
+    if (car.dir === 1) {
+      ctx.fillRect(screenX + 20, screenY - 5, 3, 10);
+      ctx.fillRect(screenX + 7, screenY - 5, 2, 10);
+      // Headlights
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(screenX + 31, screenY - 2, 2, 3);
+      ctx.fillRect(screenX + 31, screenY + 7, 2, 3);
+      // Taillights
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(screenX - 1, screenY - 2, 2, 3);
+      ctx.fillRect(screenX - 1, screenY + 7, 2, 3);
+    } else {
+      ctx.fillRect(screenX + 9, screenY - 5, 3, 10);
+      ctx.fillRect(screenX + 23, screenY - 5, 2, 10);
+      // Headlights
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(screenX - 1, screenY - 2, 2, 3);
+      ctx.fillRect(screenX - 1, screenY + 7, 2, 3);
+      // Taillights
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(screenX + 31, screenY - 2, 2, 3);
+      ctx.fillRect(screenX + 31, screenY + 7, 2, 3);
+    }
+
+    // Wheels
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(screenX + 4, screenY - 6, 6, 3);
+    ctx.fillRect(screenX + 22, screenY - 6, 6, 3);
+    ctx.fillRect(screenX + 4, screenY + 11, 6, 3);
+    ctx.fillRect(screenX + 22, screenY + 11, 6, 3);
+  });
+}
+
+/**
+ * Modern Cast-Iron Streetlamps with Ambient Light Halos
+ */
+function renderStreetlampsAndGlow(
+  ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  cameraY: number,
+  canvasWidth: number,
+  canvasHeight: number
+) {
+  const lampPosts = [
+    { x: 14, y: 12 }, { x: 26, y: 12 }, { x: 40, y: 12 }, { x: 50, y: 12 },
+    { x: 14, y: 15 }, { x: 26, y: 15 }, { x: 40, y: 15 }, { x: 50, y: 15 },
+    { x: 14, y: 28 }, { x: 26, y: 28 }, { x: 40, y: 28 }, { x: 50, y: 28 },
+    { x: 14, y: 31 }, { x: 26, y: 31 }, { x: 40, y: 31 }, { x: 50, y: 31 },
+    { x: 14, y: 40 }, { x: 26, y: 40 }, { x: 40, y: 40 }, { x: 50, y: 40 },
+    { x: 25, y: 17 }, { x: 33, y: 17 }, { x: 25, y: 23 }, { x: 33, y: 23 },
+  ];
+
+  lampPosts.forEach(({ x, y }) => {
+    const screenX = x * TILE_SIZE - cameraX + canvasWidth / 2;
+    const screenY = y * TILE_SIZE - cameraY + canvasHeight / 2;
+
+    if (screenX < -30 || screenX > canvasWidth + 30 || screenY < -40 || screenY > canvasHeight + 40) {
+      return;
+    }
+
+    // Soft warm radial light halo on ground
+    const grad = ctx.createRadialGradient(screenX + 20, screenY + 20, 4, screenX + 20, screenY + 20, 36);
+    grad.addColorStop(0, 'rgba(254, 240, 138, 0.16)');
+    grad.addColorStop(1, 'rgba(254, 240, 138, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(screenX + 20, screenY + 20, 36, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Lamp Post Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.beginPath();
+    ctx.ellipse(screenX + 20, screenY + 26, 4, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cast-iron pole
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(screenX + 19, screenY + 6, 2.5, 20);
+
+    // Lamp head / arm
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(screenX + 17, screenY + 4, 6.5, 3);
+
+    // Glowing Lantern Bulb
+    ctx.fillStyle = '#fef08a';
+    ctx.fillRect(screenX + 18, screenY + 7, 4.5, 4);
   });
 }
 
