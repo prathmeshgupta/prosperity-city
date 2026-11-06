@@ -23,25 +23,27 @@ export const MiniMapRadar: React.FC<MiniMapRadarProps> = ({
   const playerTileX = playerX / TILE_SIZE;
   const playerTileY = playerY / TILE_SIZE;
 
-  // Determine current district
-  let currentDistrict = 'Central Town Plaza';
-  if (playerTileY < 18) {
-    if (playerTileX < 20) currentDistrict = 'University Campus';
-    else if (playerTileX < 32) currentDistrict = 'Apex Business Zone';
-    else currentDistrict = 'Wall St Financial District';
-  } else if (playerTileY > 32) {
-    if (playerTileX < 20) currentDistrict = 'Commercial Boulevard';
-    else if (playerTileX < 50) currentDistrict = 'Residential Suburbs';
-    else currentDistrict = 'Shady Back-Alley';
+  // Determine current district dynamically on 96x72 grid
+  let currentDistrict = 'Central Civic Plaza';
+  if (playerTileY < 24) {
+    if (playerTileX < 28) currentDistrict = 'University Heights';
+    else if (playerTileX < 48) currentDistrict = 'Silicon Forge';
+    else if (playerTileX < 80) currentDistrict = 'Wall St Financial District';
+    else currentDistrict = 'Oceanfront Pier Boardwalk';
+  } else if (playerTileY < 46) {
+    if (playerTileX < 32) currentDistrict = 'Commercial Boulevard';
+    else if (playerTileX < 58) currentDistrict = 'Central Civic Plaza';
+    else if (playerTileX < 80) currentDistrict = 'Healthcare Promenade';
+    else currentDistrict = 'Oceanfront Pier Boardwalk';
   } else {
-    if (playerTileX < 20) currentDistrict = 'Commercial Boulevard';
-    else if (playerTileX > 50) currentDistrict = 'Oceanfront Pier';
-    else currentDistrict = 'Central Civic Plaza';
+    if (playerTileX < 44) currentDistrict = 'Innovation & Arts Quarter';
+    else if (playerTileX < 76) currentDistrict = 'Residential Suburbs';
+    else currentDistrict = 'Billionaires Row';
   }
 
   // Mini dimensions
-  const miniW = 160;
-  const miniH = 125;
+  const miniW = 180;
+  const miniH = 135;
   const scaleX = miniW / MAP_WIDTH;
   const scaleY = miniH / MAP_HEIGHT;
 
@@ -52,7 +54,7 @@ export const MiniMapRadar: React.FC<MiniMapRadarProps> = ({
         <div className="p-2 rounded-2xl bg-slate-950/85 backdrop-blur-md border border-slate-700/80 shadow-2xl space-y-1.5">
           {/* Header Bar */}
           <div className="flex items-center justify-between text-[10px] font-bold text-slate-300 px-1">
-            <span className="flex items-center gap-1 text-emerald-400 truncate max-w-[110px]">
+            <span className="flex items-center gap-1 text-emerald-400 truncate max-w-[130px]">
               <MapPin className="w-3 h-3 shrink-0" />
               <span className="truncate">{currentDistrict}</span>
             </span>
@@ -71,43 +73,65 @@ export const MiniMapRadar: React.FC<MiniMapRadarProps> = ({
             style={{ width: `${miniW}px`, height: `${miniH}px` }}
             onClick={() => setIsExpanded(true)}
           >
-            {/* Water zone on right */}
+            {/* Ocean zone on east edge (x >= 84) */}
             <div
               className="absolute top-0 right-0 h-full bg-cyan-950/70 border-l border-cyan-800/40"
-              style={{ width: `${(MAP_WIDTH - 52) * scaleX}px` }}
+              style={{ width: `${(MAP_WIDTH - 84) * scaleX}px` }}
             />
 
-            {/* Central Plaza rectangle */}
+            {/* Central Plaza rectangle (x: 40-52, y: 20-28) */}
             <div
               className="absolute bg-emerald-950/40 border border-emerald-800/30 rounded-sm"
               style={{
-                left: `${24 * scaleX}px`,
-                top: `${16 * scaleY}px`,
-                width: `${14 * scaleX}px`,
-                height: `${12 * scaleY}px`,
+                left: `${40 * scaleX}px`,
+                top: `${20 * scaleY}px`,
+                width: `${12 * scaleX}px`,
+                height: `${8 * scaleY}px`,
               }}
             />
 
-            {/* Road lines */}
+            {/* Horizontal Avenues (y = 14, 28, 42, 56) */}
             <div
               className="absolute bg-slate-700/60"
-              style={{ left: 0, top: `${13 * scaleY}px`, width: '100%', height: `${2 * scaleY}px` }}
+              style={{ left: 0, top: `${14 * scaleY}px`, width: `${79 * scaleX}px`, height: `${2 * scaleY}px` }}
             />
             <div
               className="absolute bg-slate-700/60"
-              style={{ left: 0, top: `${29 * scaleY}px`, width: '100%', height: `${2 * scaleY}px` }}
+              style={{ left: 0, top: `${28 * scaleY}px`, width: `${79 * scaleX}px`, height: `${2 * scaleY}px` }}
             />
             <div
               className="absolute bg-slate-700/60"
-              style={{ left: `${15 * scaleX}px`, top: 0, width: `${2 * scaleX}px`, height: '100%' }}
+              style={{ left: 0, top: `${42 * scaleY}px`, width: `${79 * scaleX}px`, height: `${2 * scaleY}px` }}
             />
             <div
               className="absolute bg-slate-700/60"
-              style={{ left: `${27 * scaleX}px`, top: 0, width: `${2 * scaleX}px`, height: '100%' }}
+              style={{ left: 0, top: `${56 * scaleY}px`, width: `${79 * scaleX}px`, height: `${2 * scaleY}px` }}
+            />
+
+            {/* Vertical Streets (x = 16, 32, 44, 58, 68, 78) */}
+            <div
+              className="absolute bg-slate-700/60"
+              style={{ left: `${16 * scaleX}px`, top: `${14 * scaleY}px`, width: `${2 * scaleX}px`, height: `${44 * scaleY}px` }}
             />
             <div
               className="absolute bg-slate-700/60"
-              style={{ left: `${41 * scaleX}px`, top: 0, width: `${2 * scaleX}px`, height: '100%' }}
+              style={{ left: `${32 * scaleX}px`, top: `${14 * scaleY}px`, width: `${2 * scaleX}px`, height: `${44 * scaleY}px` }}
+            />
+            <div
+              className="absolute bg-slate-700/60"
+              style={{ left: `${44 * scaleX}px`, top: `${14 * scaleY}px`, width: `${2 * scaleX}px`, height: `${44 * scaleY}px` }}
+            />
+            <div
+              className="absolute bg-slate-700/60"
+              style={{ left: `${58 * scaleX}px`, top: `${14 * scaleY}px`, width: `${2 * scaleX}px`, height: `${44 * scaleY}px` }}
+            />
+            <div
+              className="absolute bg-slate-700/60"
+              style={{ left: `${68 * scaleX}px`, top: `${14 * scaleY}px`, width: `${2 * scaleX}px`, height: `${44 * scaleY}px` }}
+            />
+            <div
+              className="absolute bg-slate-700/60"
+              style={{ left: `${78 * scaleX}px`, top: `${14 * scaleY}px`, width: `${2 * scaleX}px`, height: `${44 * scaleY}px` }}
             />
 
             {/* Building Pins */}
@@ -137,7 +161,7 @@ export const MiniMapRadar: React.FC<MiniMapRadarProps> = ({
               );
             })}
 
-            {/* Player Blinking Dot with Cone */}
+            {/* Player Blinking Dot */}
             <div
               className="absolute -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none"
               style={{ left: `${playerTileX * scaleX}px`, top: `${playerTileY * scaleY}px` }}
@@ -158,9 +182,9 @@ export const MiniMapRadar: React.FC<MiniMapRadarProps> = ({
                   🗺️
                 </div>
                 <div>
-                  <h3 className="font-black text-lg text-white">Prosperity City Metropolis Map</h3>
+                  <h3 className="font-black text-lg text-white">Prosperity City Metropolis Directory</h3>
                   <p className="text-xs text-slate-400">
-                    64x50 Urban Grid • Click any building to set your Navigation Waypoint
+                    96x72 Grand Metropolis Grid • 10 Thematic Districts • Click to set Navigation Waypoint
                   </p>
                 </div>
               </div>

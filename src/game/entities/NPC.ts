@@ -1,17 +1,19 @@
-export interface DialogueChoice {
+export interface NPCDialogueChoice {
   text: string;
   response: string;
+  educationalLesson: string;
   cashBonus?: number;
   happinessBonus?: number;
   healthBonus?: number;
   xpBonus?: number;
-  educationalLesson: string;
 }
 
+export type DialogueChoice = NPCDialogueChoice;
+
 export interface NPCDialogue {
-  greeting: string;
   portrait: string;
-  choices: DialogueChoice[];
+  greeting: string;
+  choices: NPCDialogueChoice[];
 }
 
 export interface NPC {
@@ -20,10 +22,8 @@ export interface NPC {
   title: string;
   avatar: string;
   color: string;
-  x: number; // in world pixels
+  x: number; // in world px
   y: number;
-  targetX?: number;
-  targetY?: number;
   direction: 'up' | 'down' | 'left' | 'right';
   dialogue: NPCDialogue;
   speechBubble?: string;
@@ -32,6 +32,8 @@ export interface NPC {
   wanderRadius: number;
   originX: number;
   originY: number;
+  targetX?: number;
+  targetY?: number;
 }
 
 export const INITIAL_NPCS: NPC[] = [
@@ -42,12 +44,12 @@ export const INITIAL_NPCS: NPC[] = [
     title: 'Senior Vice President of Prosperity Bank',
     avatar: '🤵',
     color: '#10B981',
-    x: 36 * 40 - 20,
+    x: 52 * 40 - 20,
     y: 11 * 40,
     direction: 'down',
     isWandering: true,
     wanderRadius: 70,
-    originX: 36 * 40 - 20,
+    originX: 52 * 40 - 20,
     originY: 11 * 40,
     speechBubble: 'Keep 3-6 months in safe cash!',
     dialogue: {
@@ -77,13 +79,13 @@ export const INITIAL_NPCS: NPC[] = [
     title: 'Frugal Sage of the Park',
     avatar: '👵',
     color: '#F59E0B',
-    x: 28 * 40,
-    y: 20 * 40,
+    x: 44 * 40,
+    y: 26 * 40,
     direction: 'right',
     isWandering: true,
     wanderRadius: 90,
-    originX: 28 * 40,
-    originY: 20 * 40,
+    originX: 44 * 40,
+    originY: 26 * 40,
     speechBubble: 'A penny saved is a dollar compounding!',
     dialogue: {
       portrait: '👵',
@@ -115,12 +117,12 @@ export const INITIAL_NPCS: NPC[] = [
     title: 'Exchange Veteran & Index Advocate',
     avatar: '📈',
     color: '#06B6D4',
-    x: 46 * 40 - 20,
+    x: 62 * 40 - 20,
     y: 11 * 40,
     direction: 'left',
     isWandering: true,
     wanderRadius: 80,
-    originX: 46 * 40 - 20,
+    originX: 62 * 40 - 20,
     originY: 11 * 40,
     speechBubble: 'DCA and chill beats 90% of hedge funds!',
     dialogue: {
@@ -150,13 +152,13 @@ export const INITIAL_NPCS: NPC[] = [
     title: 'The Alley Hustler',
     avatar: '🕶️',
     color: '#64748B',
-    x: 55 * 40,
-    y: 41 * 40,
+    x: 62 * 40,
+    y: 63 * 40,
     direction: 'up',
     isWandering: false,
     wanderRadius: 0,
-    originX: 55 * 40,
-    originY: 41 * 40,
+    originX: 62 * 40,
+    originY: 63 * 40,
     speechBubble: 'Psst... guaranteed 50% returns, kid!',
     dialogue: {
       portrait: '🕶️',
@@ -188,13 +190,13 @@ export const INITIAL_NPCS: NPC[] = [
     title: 'Chief Medical Officer & HSA Advocate',
     avatar: '🩺',
     color: '#14B8A6',
-    x: 38 * 40 + 20,
-    y: 27 * 40,
+    x: 62 * 40,
+    y: 35 * 40,
     direction: 'left',
     isWandering: true,
     wanderRadius: 60,
-    originX: 38 * 40 + 20,
-    originY: 27 * 40,
+    originX: 62 * 40,
+    originY: 35 * 40,
     speechBubble: 'HSA is the ultimate triple-tax shield!',
     dialogue: {
       portrait: '🩺',
@@ -217,13 +219,13 @@ export const INITIAL_NPCS: NPC[] = [
     title: 'Managing Broker & Cashflow Strategist',
     avatar: '🏘️',
     color: '#6366F1',
-    x: 46 * 40,
-    y: 39 * 40,
+    x: 72 * 40,
+    y: 49 * 40,
     direction: 'up',
     isWandering: true,
     wanderRadius: 60,
-    originX: 46 * 40,
-    originY: 39 * 40,
+    originX: 72 * 40,
+    originY: 49 * 40,
     speechBubble: 'Cashflow over appreciation!',
     dialogue: {
       portrait: '🏘️',
@@ -246,13 +248,13 @@ export const INITIAL_NPCS: NPC[] = [
     title: 'VP of Talent & Corporate Mentor',
     avatar: '💼',
     color: '#3B82F6',
-    x: 22 * 40 - 20,
-    y: 11 * 40,
+    x: 36 * 40 - 20,
+    y: 49 * 40,
     direction: 'right',
     isWandering: true,
     wanderRadius: 70,
-    originX: 22 * 40 - 20,
-    originY: 11 * 40,
+    originX: 36 * 40 - 20,
+    originY: 49 * 40,
     speechBubble: 'Your career is your largest capital asset!',
     dialogue: {
       portrait: '💼',
@@ -275,13 +277,13 @@ export const INITIAL_NPCS: NPC[] = [
     title: 'Master Automotive Technician',
     avatar: '🚗',
     color: '#EF4444',
-    x: 10 * 40 + 20,
-    y: 39 * 40,
+    x: 20 * 40 + 20,
+    y: 35 * 40,
     direction: 'left',
     isWandering: true,
     wanderRadius: 60,
-    originX: 10 * 40 + 20,
-    originY: 39 * 40,
+    originX: 20 * 40 + 20,
+    originY: 35 * 40,
     speechBubble: 'Car payments drain more wealth than lattes!',
     dialogue: {
       portrait: '🚗',

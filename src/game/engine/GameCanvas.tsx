@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { GameState } from '../../types/game';
 import { BUILDINGS, BuildingEntrance, TILE_SIZE, MAP_WIDTH, MAP_HEIGHT } from '../world/mapData';
+import { STREET_PROPS, StreetProp } from '../world/streetProps';
 import { INITIAL_NPCS, NPC } from '../entities/NPC';
 import { INITIAL_COLLECTIBLES, Collectible } from '../entities/Collectible';
 import { renderWorldMap } from './tilesetRenderer';
@@ -61,10 +62,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   // Atmosphere engine instance (day/night cycle & weather)
   const atmosphereRef = useRef<WorldAtmosphere>(new WorldAtmosphere());
 
-  // Player state in world px (Starts at Town Plaza at tileX 30, tileY 21)
+  // Player state in world px (Starts at Town Plaza at tileX 46, tileY 28)
   const [player, setPlayer] = useState<PlayerEntity>({
-    x: 30 * TILE_SIZE,
-    y: 21 * TILE_SIZE,
+    x: 46 * TILE_SIZE,
+    y: 28 * TILE_SIZE,
     direction: 'down',
     isMoving: false,
     walkFrame: 0,
@@ -100,8 +101,62 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const [talkingNpc, setTalkingNpc] = useState<NPC | null>(null);
   const [nearbyBuilding, setNearbyBuilding] = useState<BuildingEntrance | null>(null);
   const [nearbyNpc, setNearbyNpc] = useState<NPC | null>(null);
+  const [nearbyStreetProp, setNearbyStreetProp] = useState<StreetProp | null>(null);
   const [isNearFountain, setIsNearFountain] = useState<boolean>(false);
   const [bannerAlert, setBannerAlert] = useState<string | null>('Follow your Guided Compass at the top to reach your first goal!');
+
+  // Street Prop Interaction Handler
+  const handleInteractStreetProp = (prop: StreetProp) => {
+    switch (prop.type) {
+      case 'ATM':
+        if (state.cash >= 250) {
+          state.cash -= 250;
+          state.emergencyFund += 250;
+          state.totalXP += 15;
+          soundFx.playCoin();
+          setBannerAlert(`🏧 ATM: Deposited $250 into 4.5% High-Yield Vault! New Vault: $${state.emergencyFund.toLocaleString()}`);
+        } else if (state.emergencyFund >= 200) {
+          state.emergencyFund -= 200;
+          state.cash += 200;
+          soundFx.playCoin();
+          setBannerAlert(`🏧 ATM: Withdrew $200 cash! Checking: $${state.cash.toLocaleString()}`);
+        } else {
+          setBannerAlert('🏧 ATM: Insufficient funds in checking or vault.');
+        }
+        break;
+      case 'NEWS_KIOSK':
+        soundFx.playClick();
+        state.totalXP += 20;
+        setBannerAlert(`📰 ${state.economicHeadline} (Fed Funds: ${(state.interestRate * 100).toFixed(2)}%, CPI: ${(state.inflationRate * 100).toFixed(1)}%) +20 XP!`);
+        break;
+      case 'COFFEE_CART':
+        if (state.cash >= 6) {
+          state.cash -= 6;
+          state.character.happiness = Math.min(100, state.character.happiness + 10);
+          state.character.health = Math.min(100, state.character.health + 5);
+          state.burnout = 0;
+          state.totalXP += 15;
+          soundFx.playCoin();
+          setBannerAlert('☕ Artisan Cold Brew! Burnout reset to 0%, Happiness +10!');
+        } else {
+          setBannerAlert('Need $6 cash for cold brew.');
+        }
+        break;
+      case 'BENCH':
+        soundFx.playClick();
+        state.character.health = Math.min(100, state.character.health + 10);
+        state.burnout = Math.max(0, (state.burnout || 0) - 25);
+        state.character.happiness = Math.min(100, state.character.happiness + 5);
+        setBannerAlert('🪑 Rested peacefully on park bench! Health +10%, Stress Relieved!');
+        break;
+      case 'FOR_SALE_SIGN':
+        const duplex = BUILDINGS.find((b) => b.id === 'bldg_duplex_property');
+        if (duplex) handleEnterBuilding(duplex);
+        break;
+    }
+    onUpdateState({ ...state });
+    setTimeout(() => setBannerAlert(null), 4000);
+  };
 
   // Modals
   const [showInventory, setShowInventory] = useState<boolean>(false);
@@ -203,7 +258,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       // E or Space to interact
       if (e.key === 'e' || e.key === 'E' || e.key === ' ') {
-        if (isNearFountain) {
+        if (nearbyStreetProp) {
+          handleInteractStreetProp(nearbyStreetProp);
+        } else if (isNearFountain) {
           setShowFreedomBellModal(true);
         } else if (nearbyBuilding && !enteredBuilding) {
           handleEnterBuilding(nearbyBuilding);
@@ -242,7 +299,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [nearbyBuilding, nearbyNpc, enteredBuilding, talkingNpc, isNearFountain, showInventory, showCampaignModal, showFreedomBellModal, showLifeFocusModal, showLegacyModal, activeMinigame]);
+  }, [nearbyBuilding, nearbyNpc, nearbyStreetProp, enteredBuilding, talkingNpc, isNearFountain, showInventory, showCampaignModal, showFreedomBellModal, showLifeFocusModal, showLegacyModal, activeMinigame]);
 
   // Main 60 FPS Game Loop
   useEffect(() => {
@@ -305,11 +362,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           player.walkFrame += dt * (player.vehicle === 'CAR' ? 6 : 10);
         }
 
-        // Check Plaza Fountain proximity for Freedom Bell
-        const fountainX = 30 * TILE_SIZE;
-        const fountainY = 20 * TILE_SIZE;
+        // Check Plaza Fountain proximity for Freedom Bell (at tileX 46, tileY 24)
+        const fountainX = 46 * TILE_SIZE;
+        const fountainY = 24 * TILE_SIZE;
         const distFountain = Math.hypot(player.x - fountainX, player.y - fountainY);
-        setIsNearFountain(distFountain < 65);
+        setIsNearFountain(distFountain < 75);
 
         // Check building proximity
         let foundBldg: BuildingEntrance | null = null;
@@ -334,6 +391,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           }
         }
         setNearbyNpc(foundNpc);
+
+        // Check Street Props proximity
+        let foundProp: StreetProp | null = null;
+        for (const prop of STREET_PROPS) {
+          const propX = prop.tileX * TILE_SIZE;
+          const propY = prop.tileY * TILE_SIZE;
+          const dist = Math.hypot(player.x - propX, player.y - propY);
+          if (dist < 55) {
+            foundProp = prop;
+            break;
+          }
+        }
+        setNearbyStreetProp(foundProp);
 
         // Check Collectibles
         for (const item of collectibles) {
@@ -538,11 +608,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       />
 
       {/* Floating Bottom Action Prompt Bar */}
-      {(nearbyBuilding || nearbyNpc || isNearFountain) && !enteredBuilding && !talkingNpc && !activeMinigame && (
+      {(nearbyBuilding || nearbyNpc || isNearFountain || nearbyStreetProp) && !enteredBuilding && !talkingNpc && !activeMinigame && (
         <div className="absolute bottom-20 inset-x-6 z-30 max-w-md mx-auto animate-in slide-in-from-bottom duration-200">
           <button
             onClick={() => {
-              if (isNearFountain) {
+              if (nearbyStreetProp) {
+                handleInteractStreetProp(nearbyStreetProp);
+              } else if (isNearFountain) {
                 setShowFreedomBellModal(true);
               } else if (nearbyBuilding) {
                 handleEnterBuilding(nearbyBuilding);
@@ -554,7 +626,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-sm shadow-2xl shadow-emerald-500/40 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
           >
             <span>
-              {isNearFountain
+              {nearbyStreetProp
+                ? `${nearbyStreetProp.icon} ${nearbyStreetProp.name} [E]`
+                : isNearFountain
                 ? '🔔 Ring Freedom Bell (FIRE Summit) [E]'
                 : nearbyBuilding
                 ? `Enter ${nearbyBuilding.name} [E]`
