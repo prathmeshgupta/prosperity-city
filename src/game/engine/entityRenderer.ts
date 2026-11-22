@@ -1,6 +1,8 @@
 import { NPC } from '../entities/NPC';
 import { Collectible } from '../entities/Collectible';
 import { getAvatarVisualSpec, renderPlayerSprite, AvatarVisualSpec } from './avatarRenderer';
+import { pedestrianEngine, Pedestrian } from './pedestrianAI';
+import { vehicleEngine } from './vehicleEngine';
 
 export interface PlayerEntity {
   x: number; // world px
@@ -80,7 +82,7 @@ export function renderEntities(
     }
   });
 
-  // 2. Render Wandering NPCs
+  // 2. Render Wandering Quest NPCs
   npcs.forEach((npc) => {
     const screenX = npc.x - cameraX + canvasWidth / 2;
     const screenY = npc.y - cameraY + canvasHeight / 2;
@@ -125,7 +127,7 @@ export function renderEntities(
       ctx.beginPath();
       ctx.roundRect(screenX - bubbleW / 2, screenY - 58, bubbleW, 16, 4);
       ctx.fill();
-      // Little triangle pointer
+      // Triangle pointer
       ctx.beginPath();
       ctx.moveTo(screenX, screenY - 42);
       ctx.lineTo(screenX - 4, screenY - 46);
@@ -146,7 +148,97 @@ export function renderEntities(
     }
   });
 
-  // 3. Render Player Character
+  // 3. Render Living GTA Crowd Pedestrians (Bankers, Tech Bros, Joggers, Socialites, Students)
+  pedestrianEngine.pedestrians.forEach((ped) => {
+    const screenX = ped.x - cameraX + canvasWidth / 2;
+    const screenY = ped.y - cameraY + canvasHeight / 2;
+
+    if (screenX < -50 || screenX > canvasWidth + 50 || screenY < -50 || screenY > canvasHeight + 50) {
+      return;
+    }
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.beginPath();
+    ctx.ellipse(screenX, screenY + 12, 9, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Walking animation bob
+    const bob = Math.abs(Math.sin(ped.walkFrame)) * 3;
+
+    // Legs
+    const legOffset = Math.sin(ped.walkFrame) * 4;
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(screenX - 4 + legOffset, screenY + 4, 3, 8);
+    ctx.fillRect(screenX + 1 - legOffset, screenY + 4, 3, 8);
+
+    // Torso / Outfit
+    ctx.fillStyle = ped.outfitColor;
+    ctx.beginPath();
+    ctx.roundRect(screenX - 7, screenY - 8 - bob, 14, 14, 3);
+    ctx.fill();
+
+    // Head
+    ctx.fillStyle = '#fed7aa'; // skin tone
+    ctx.beginPath();
+    ctx.arc(screenX, screenY - 14 - bob, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Hair
+    ctx.fillStyle = ped.hairColor;
+    ctx.beginPath();
+    ctx.arc(screenX, screenY - 16 - bob, 6, Math.PI, 0);
+    ctx.fill();
+
+    // Accessories
+    if (ped.accessory === 'BRIEFCASE') {
+      ctx.fillStyle = '#78350f';
+      ctx.fillRect(screenX + 8, screenY - 2 - bob, 5, 7);
+    } else if (ped.accessory === 'COFFEE') {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(screenX + 7, screenY - 4 - bob, 4, 6);
+      ctx.fillStyle = '#059669';
+      ctx.fillRect(screenX + 7, screenY - 2 - bob, 4, 2);
+    } else if (ped.accessory === 'BACKPACK') {
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(screenX - 10, screenY - 6 - bob, 4, 8);
+    } else if (ped.accessory === 'SUNGLASSES') {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(screenX - 4, screenY - 15 - bob, 8, 2);
+    }
+
+    // Panic reaction indicator
+    if (ped.isPanicking) {
+      ctx.fillStyle = '#ef4444';
+      ctx.font = 'extrabold 12px sans-serif';
+      ctx.fillText('❗', screenX, screenY - 24 - bob);
+    }
+
+    // Quip Speech Bubble
+    if (ped.quip) {
+      ctx.font = 'bold 8.5px "Plus Jakarta Sans", sans-serif';
+      const bubbleW = ctx.measureText(ped.quip).width + 12;
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.beginPath();
+      ctx.roundRect(screenX - bubbleW / 2, screenY - 34 - bob, bubbleW, 14, 4);
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText(ped.quip, screenX, screenY - 24 - bob);
+    }
+  });
+
+  // 4. Render Player Character
+  const isDriving = vehicleEngine.playerVehicle !== null || player.vehicle === 'CAR';
+  if (isDriving) {
+    // Player is inside the vehicle! The vehicle renders the chassis and interior driving silhouette.
+    return;
+  }
+
   const playerScreenX = canvasWidth / 2;
   const playerScreenY = canvasHeight / 2;
 
@@ -189,49 +281,24 @@ export function renderEntities(
     ctx.fillText('🐕 Hound', petX, petY - 14);
   }
 
-  // Render Vehicles: BICYCLE or CAR
-  if (player.vehicle === 'CAR') {
-    // Car Chassis around player
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    ctx.beginPath();
-    ctx.ellipse(playerScreenX, playerScreenY + 18, 28, 10, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#0ea5e9'; // electric blue car
-    ctx.beginPath();
-    ctx.roundRect(playerScreenX - 22, playerScreenY - 4, 44, 24, 6);
-    ctx.fill();
-
-    // Windows
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(playerScreenX - 16, playerScreenY, 32, 10);
-
-    // Wheels
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(playerScreenX - 20, playerScreenY + 16, 8, 6);
-    ctx.fillRect(playerScreenX + 12, playerScreenY + 16, 8, 6);
-  } else if (player.vehicle === 'BICYCLE') {
-    // Bicycle Frame & Wheels
+  // Render Bicycle if active
+  if (player.vehicle === 'BICYCLE') {
     ctx.strokeStyle = '#f59e0b';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(playerScreenX - 12, playerScreenY + 14, 6, 0, Math.PI * 2);
     ctx.arc(playerScreenX + 12, playerScreenY + 14, 6, 0, Math.PI * 2);
     ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(playerScreenX - 12, playerScreenY + 14);
-    ctx.lineTo(playerScreenX, playerScreenY + 6);
-    ctx.lineTo(playerScreenX + 12, playerScreenY + 14);
-    ctx.moveTo(playerScreenX, playerScreenY + 6);
-    ctx.lineTo(playerScreenX + 6, playerScreenY - 2);
-    ctx.stroke();
   }
 
-  // Get dynamic visual specification matching avatar emoji & archetype
-  const visualSpec = getAvatarVisualSpec(player.avatarEmoji, player.archetypeId);
+  // Shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+  ctx.beginPath();
+  ctx.ellipse(playerScreenX, playerScreenY + 14, 12, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-  // Render stylized procedural character sprite
+  // Render High-Fidelity Archetype Avatar
+  const spec = getAvatarVisualSpec(player.avatarEmoji, player.archetypeId);
   renderPlayerSprite(
     ctx,
     playerScreenX,
@@ -239,21 +306,16 @@ export function renderEntities(
     player.direction,
     player.isMoving,
     player.walkFrame,
-    visualSpec
+    spec
   );
 
-  // Name Tag & Title above player
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-  ctx.strokeStyle = '#10b981';
-  ctx.lineWidth = 1.5;
-  const tagText = `${player.avatarEmoji} ${player.name}`;
-  const tagWidth = ctx.measureText(tagText).width + 18;
+  // Player Name Tag
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
   ctx.beginPath();
-  ctx.roundRect(playerScreenX - tagWidth / 2, playerScreenY - 48, tagWidth, 16, 5);
+  ctx.roundRect(playerScreenX - 35, playerScreenY - 38, 70, 16, 4);
   ctx.fill();
-  ctx.stroke();
-
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 9px "Plus Jakarta Sans", sans-serif';
-  ctx.fillText(tagText, playerScreenX, playerScreenY - 36);
+  ctx.textAlign = 'center';
+  ctx.fillText(player.name, playerScreenX, playerScreenY - 26);
 }

@@ -28,22 +28,31 @@ import { GenerationalLegacyModal } from '../ui/GenerationalLegacyModal';
 import { LifeStageHUD } from '../ui/LifeStageHUD';
 import { INTERIOR_ROOMS } from '../world/interiorData';
 import { WalkableInterior } from './WalkableInterior';
+import { vehicleEngine, Vehicle } from './vehicleEngine';
+import { radioEngine, RadioStation } from './radioEngine';
+import { wantedLevelEngine } from './wantedLevelEngine';
+import { pedestrianEngine } from './pedestrianAI';
+import { FinPhoneModal } from '../ui/FinPhoneModal';
 import confetti from 'canvas-confetti';
 import { 
   Compass, 
   ArrowUp, 
   ArrowDown, 
   ArrowLeft, 
-  ArrowRight,
-  Sparkles,
-  Backpack,
-  Sun,
-  Moon,
-  CloudRain,
-  Trophy,
-  Bell,
-  Heart,
-  Zap
+  ArrowRight, 
+  Sparkles, 
+  Backpack, 
+  Sun, 
+  Moon, 
+  CloudRain, 
+  Trophy, 
+  Bell, 
+  Heart, 
+  Zap,
+  Smartphone,
+  Radio as RadioIcon,
+  Gauge,
+  ShieldAlert
 } from 'lucide-react';
 
 interface GameCanvasProps {
@@ -102,6 +111,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const [nearbyBuilding, setNearbyBuilding] = useState<BuildingEntrance | null>(null);
   const [nearbyNpc, setNearbyNpc] = useState<NPC | null>(null);
   const [nearbyStreetProp, setNearbyStreetProp] = useState<StreetProp | null>(null);
+  const [nearbyVehicle, setNearbyVehicle] = useState<Vehicle | null>(null);
+  const [showPhone, setShowPhone] = useState<boolean>(false);
+  const [radioBanner, setRadioBanner] = useState<string | null>(null);
+  const [wantedStars, setWantedStars] = useState<number>(wantedLevelEngine.getStars());
+  const [vehicleSpeedMPH, setVehicleSpeedMPH] = useState<number>(0);
   const [isNearFountain, setIsNearFountain] = useState<boolean>(false);
   const [bannerAlert, setBannerAlert] = useState<string | null>('Follow your Guided Compass at the top to reach your first goal!');
 
@@ -256,8 +270,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       keysPressed.current[e.key.toLowerCase()] = true;
 
-      // E or Space to interact
-      if (e.key === 'e' || e.key === 'E' || e.key === ' ') {
+      // E or Space to interact (on foot)
+      if (e.key === 'e' || e.key === 'E') {
         if (nearbyStreetProp) {
           handleInteractStreetProp(nearbyStreetProp);
         } else if (isNearFountain) {
@@ -270,6 +284,63 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
+      // F or Enter: Enter / Exit Vehicle (GTA mechanics!)
+      if (e.key === 'f' || e.key === 'F' || (e.key === 'Enter' && nearbyVehicle)) {
+        if (vehicleEngine.playerVehicle) {
+          const exitPos = vehicleEngine.exitVehicle();
+          setPlayer((prev) => ({
+            ...prev,
+            x: exitPos.x,
+            y: exitPos.y,
+            vehicle: 'FOOT',
+          }));
+          setBannerAlert('👟 Stepped out of vehicle.');
+          setTimeout(() => setBannerAlert(null), 3000);
+        } else if (nearbyVehicle) {
+          vehicleEngine.enterVehicle(nearbyVehicle);
+          setPlayer((prev) => ({
+            ...prev,
+            vehicle: 'CAR',
+          }));
+          radioEngine.start();
+          const st = radioEngine.getCurrentStation();
+          setRadioBanner(`📻 ${st.name} (${st.frequency}) • ${st.currentTrack}`);
+          setBannerAlert(`🚗 Driving ${nearbyVehicle.model}! [W/S] Throttle/Brake, [A/D] Steer, [Space] Drift, [H] Horn, [R] Radio, [F] Exit`);
+          setTimeout(() => {
+            setBannerAlert(null);
+            setRadioBanner(null);
+          }, 4500);
+        }
+      }
+
+      // H for Horn
+      if (e.key === 'h' || e.key === 'H') {
+        if (vehicleEngine.playerVehicle) {
+          vehicleEngine.honk();
+          pedestrianEngine.alertNearbyCar(player.x, player.y);
+        }
+      }
+
+      // J for Siren
+      if (e.key === 'j' || e.key === 'J') {
+        vehicleEngine.toggleSiren();
+      }
+
+      // R for Radio Station Quick-Switch
+      if (e.key === 'r' || e.key === 'R') {
+        const nextSt = radioEngine.nextStation();
+        setRadioBanner(`📻 ${nextSt.name} (${nextSt.frequency}) • ${nextSt.currentTrack}`);
+        setTimeout(() => setRadioBanner(null), 4000);
+      }
+
+      // P for Smartphone (FinPhone 16 Pro)
+      if (e.key === 'p' || e.key === 'P' || e.key === 'ArrowUp') {
+        if (!vehicleEngine.playerVehicle && !enteredBuilding && !talkingNpc) {
+          soundFx.playPhoneChime();
+          setShowPhone((v) => !v);
+        }
+      }
+
       // I for Inventory
       if (e.key === 'i' || e.key === 'I') {
         soundFx.playClick();
@@ -277,6 +348,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
 
       if (e.key === 'Escape') {
+        if (showPhone) setShowPhone(false);
         if (enteredBuilding) setEnteredBuilding(null);
         if (talkingNpc) setTalkingNpc(null);
         if (showInventory) setShowInventory(false);
@@ -299,7 +371,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [nearbyBuilding, nearbyNpc, nearbyStreetProp, enteredBuilding, talkingNpc, isNearFountain, showInventory, showCampaignModal, showFreedomBellModal, showLifeFocusModal, showLegacyModal, activeMinigame]);
+  }, [nearbyBuilding, nearbyNpc, nearbyStreetProp, nearbyVehicle, enteredBuilding, talkingNpc, isNearFountain, showInventory, showCampaignModal, showFreedomBellModal, showLifeFocusModal, showLegacyModal, activeMinigame, showPhone]);
 
   // Main 60 FPS Game Loop
   useEffect(() => {
@@ -319,48 +391,80 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       atmosphereRef.current.update(dt);
       ambientMusic.setMode(atmosphereRef.current.timeOfDay === 'NIGHT' ? 'NIGHT' : 'DAY');
 
+      // Update Living Pedestrian Crowd & Regulatory Wanted Level
+      pedestrianEngine.update(dt);
+      wantedLevelEngine.update(dt);
+      setWantedStars(wantedLevelEngine.getStars());
+
       // Only move if not inside a modal
-      if (!enteredBuilding && !talkingNpc && !activeMinigame && !showInventory && !showCampaignModal && !showFreedomBellModal && !showLifeFocusModal && !showLegacyModal) {
-        let dx = 0;
-        let dy = 0;
+      if (!enteredBuilding && !talkingNpc && !activeMinigame && !showInventory && !showCampaignModal && !showFreedomBellModal && !showLifeFocusModal && !showLegacyModal && !showPhone) {
+        
+        // 1. VEHICLE DRIVING PHYSICS (GTA 6 Driving Mode!)
+        if (vehicleEngine.playerVehicle) {
+          vehicleEngine.update(dt, keysPressed.current, (alertX, alertY) => {
+            pedestrianEngine.alertNearbyCar(alertX, alertY);
+          });
+          const v = vehicleEngine.playerVehicle;
+          player.x = v.x;
+          player.y = v.y;
+          player.isMoving = Math.abs(v.speed) > 10;
+          setVehicleSpeedMPH(Math.round(Math.abs(v.speed) / 3.8));
 
-        if (keysPressed.current['w'] || keysPressed.current['arrowup']) dy -= 1;
-        if (keysPressed.current['s'] || keysPressed.current['arrowdown']) dy += 1;
-        if (keysPressed.current['a'] || keysPressed.current['arrowleft']) dx -= 1;
-        if (keysPressed.current['d'] || keysPressed.current['arrowright']) dx += 1;
+          // Sidewalk reckless driving detection
+          const tileY = Math.floor(v.y / TILE_SIZE);
+          const isSidewalk = (tileY === 13 || tileY === 16 || tileY === 27 || tileY === 30 || tileY === 41 || tileY === 44);
+          if (isSidewalk && Math.abs(v.speed) > 280) {
+            wantedLevelEngine.addHeat(0.004, 'Reckless Driving on Sidewalk');
+          }
+        } else {
+          // 2. ON-FOOT WALKING MODE
+          vehicleEngine.update(dt, {}, (alertX, alertY) => {
+            pedestrianEngine.alertNearbyCar(alertX, alertY);
+          });
+          setVehicleSpeedMPH(0);
 
-        if (dx !== 0 && dy !== 0) {
-          dx *= 0.7071;
-          dy *= 0.7071;
+          let dx = 0;
+          let dy = 0;
+
+          if (keysPressed.current['w'] || keysPressed.current['arrowup']) dy -= 1;
+          if (keysPressed.current['s'] || keysPressed.current['arrowdown']) dy += 1;
+          if (keysPressed.current['a'] || keysPressed.current['arrowleft']) dx -= 1;
+          if (keysPressed.current['d'] || keysPressed.current['arrowright']) dx += 1;
+
+          if (dx !== 0 && dy !== 0) {
+            dx *= 0.7071;
+            dy *= 0.7071;
+          }
+
+          let speed = 190;
+          if (player.vehicle === 'BICYCLE') speed = 280;
+
+          let nextX = player.x + dx * speed * dt;
+          let nextY = player.y + dy * speed * dt;
+
+          nextX = Math.max(TILE_SIZE * 2, Math.min(MAP_WIDTH * TILE_SIZE - TILE_SIZE * 2, nextX));
+          nextY = Math.max(TILE_SIZE * 2, Math.min(MAP_HEIGHT * TILE_SIZE - TILE_SIZE * 2, nextY));
+
+          const isMoving = dx !== 0 || dy !== 0;
+          let direction = player.direction;
+          if (Math.abs(dx) > Math.abs(dy)) {
+            direction = dx > 0 ? 'right' : 'left';
+          } else if (dy !== 0) {
+            direction = dy > 0 ? 'down' : 'up';
+          }
+
+          player.x = nextX;
+          player.y = nextY;
+          player.direction = direction;
+          player.isMoving = isMoving;
+          if (isMoving) {
+            player.walkFrame += dt * 10;
+          }
         }
 
-        // Speed modified by vehicle: Foot = 190, Bicycle = 280, Car = 410 px/s
-        let speed = 190;
-        if (player.vehicle === 'BICYCLE') speed = 280;
-        if (player.vehicle === 'CAR') speed = 410;
-
-        let nextX = player.x + dx * speed * dt;
-        let nextY = player.y + dy * speed * dt;
-
-        // Boundaries of 64x50 map
-        nextX = Math.max(TILE_SIZE * 2, Math.min(MAP_WIDTH * TILE_SIZE - TILE_SIZE * 2, nextX));
-        nextY = Math.max(TILE_SIZE * 2, Math.min(MAP_HEIGHT * TILE_SIZE - TILE_SIZE * 2, nextY));
-
-        const isMoving = dx !== 0 || dy !== 0;
-        let direction = player.direction;
-        if (Math.abs(dx) > Math.abs(dy)) {
-          direction = dx > 0 ? 'right' : 'left';
-        } else if (dy !== 0) {
-          direction = dy > 0 ? 'down' : 'up';
-        }
-
-        player.x = nextX;
-        player.y = nextY;
-        player.direction = direction;
-        player.isMoving = isMoving;
-        if (isMoving) {
-          player.walkFrame += dt * (player.vehicle === 'CAR' ? 6 : 10);
-        }
+        // Check nearest vehicle proximity for [F] prompt
+        const nearestVeh = vehicleEngine.getNearestVehicle(player.x, player.y, 65);
+        setNearbyVehicle(nearestVeh);
 
         // Check Plaza Fountain proximity for Freedom Bell (at tileX 46, tileY 24)
         const fountainX = 46 * TILE_SIZE;
@@ -492,7 +596,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     animationId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationId);
-  }, [enteredBuilding, talkingNpc, nearbyBuilding, nearbyNpc, npcs, collectibles, state, activeMinigame, showInventory, showCampaignModal, showFreedomBellModal, showLifeFocusModal, showLegacyModal, isNearFountain, targetBuilding]);
+  }, [enteredBuilding, talkingNpc, nearbyBuilding, nearbyNpc, nearbyVehicle, npcs, collectibles, state, activeMinigame, showInventory, showCampaignModal, showFreedomBellModal, showLifeFocusModal, showLegacyModal, showPhone, isNearFountain, targetBuilding]);
 
   // Click / Tap to walk on canvas
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -590,6 +694,32 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         />
       )}
 
+      {/* Floating Radio Station Banner (GTA Radio Wheel HUD) */}
+      {radioBanner && (
+        <div className="absolute top-14 inset-x-0 mx-auto w-fit z-40 bg-slate-950/95 border border-pink-500/60 text-white px-5 py-2 rounded-2xl shadow-2xl flex items-center gap-2.5 backdrop-blur-md animate-in slide-in-from-top duration-300 pointer-events-none">
+          <RadioIcon className="w-4 h-4 text-pink-400 animate-pulse" />
+          <span className="font-mono text-xs font-black tracking-wide text-pink-200">{radioBanner}</span>
+        </div>
+      )}
+
+      {/* Floating Regulatory Wanted Level Stars HUD (Top Right under Radar) */}
+      {wantedStars > 0 && (
+        <div className="absolute top-44 right-3 z-30 pointer-events-auto bg-slate-950/90 border border-red-500/60 px-3 py-1.5 rounded-2xl shadow-2xl flex flex-col items-end backdrop-blur-md animate-pulse">
+          <div className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-1">
+            <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
+            <span>SEC WANTED</span>
+          </div>
+          <div className="text-base text-amber-400 font-extrabold tracking-wider">
+            {'⭐'.repeat(wantedStars)}
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Police Pursuit Red & Blue Vignette Border (if 3+ Wanted Stars) */}
+      {wantedStars >= 3 && (
+        <div className="absolute inset-0 pointer-events-none z-20 border-[6px] border-red-500/40 animate-pulse" />
+      )}
+
       {/* Floating Banner Notification */}
       {bannerAlert && (
         <div className="absolute top-16 inset-x-6 z-30 max-w-lg mx-auto bg-slate-950/90 border border-emerald-500/40 text-emerald-300 px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl flex items-center gap-2 backdrop-blur-md animate-in slide-in-from-top duration-300">
@@ -607,12 +737,54 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         className="w-full h-full cursor-crosshair block"
       />
 
+      {/* Vehicular In-Car Speedometer & Dashboard (Bottom Left when driving) */}
+      {vehicleEngine.playerVehicle && (
+        <div className="absolute bottom-20 left-6 z-30 pointer-events-auto bg-slate-950/90 backdrop-blur-md border border-slate-700/80 rounded-2xl px-4 py-3 shadow-2xl flex items-center gap-4 animate-in slide-in-from-left duration-200">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+              {vehicleEngine.playerVehicle.model}
+            </span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-2xl font-black font-mono text-white">
+                {vehicleSpeedMPH}
+              </span>
+              <span className="text-xs font-mono text-emerald-400 font-bold">MPH</span>
+            </div>
+          </div>
+          <div className="h-8 w-[1px] bg-slate-800" />
+          <div className="flex flex-col gap-0.5 text-[10px] font-mono">
+            <span className="text-slate-300 font-bold">
+              GEAR {vehicleSpeedMPH === 0 ? 'P' : vehicleEngine.playerVehicle.speed < 0 ? 'R' : Math.min(6, Math.max(1, Math.floor(vehicleSpeedMPH / 22) + 1))}
+            </span>
+            <span className="text-sky-400 font-bold">
+              [Space] DRIFT • [H] HORN • [F] EXIT
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Floating Bottom Action Prompt Bar */}
-      {(nearbyBuilding || nearbyNpc || isNearFountain || nearbyStreetProp) && !enteredBuilding && !talkingNpc && !activeMinigame && (
+      {(nearbyBuilding || nearbyNpc || isNearFountain || nearbyStreetProp || nearbyVehicle || vehicleEngine.playerVehicle) && !enteredBuilding && !talkingNpc && !activeMinigame && (
         <div className="absolute bottom-20 inset-x-6 z-30 max-w-md mx-auto animate-in slide-in-from-bottom duration-200">
           <button
             onClick={() => {
-              if (nearbyStreetProp) {
+              if (vehicleEngine.playerVehicle) {
+                const exitPos = vehicleEngine.exitVehicle();
+                setPlayer((prev) => ({ ...prev, x: exitPos.x, y: exitPos.y, vehicle: 'FOOT' }));
+                setBannerAlert('👟 Stepped out of vehicle.');
+                setTimeout(() => setBannerAlert(null), 3000);
+              } else if (nearbyVehicle) {
+                vehicleEngine.enterVehicle(nearbyVehicle);
+                setPlayer((prev) => ({ ...prev, vehicle: 'CAR' }));
+                radioEngine.start();
+                const st = radioEngine.getCurrentStation();
+                setRadioBanner(`📻 ${st.name} (${st.frequency}) • ${st.currentTrack}`);
+                setBannerAlert(`🚗 Driving ${nearbyVehicle.model}! [W/S] Throttle/Brake, [A/D] Steer, [Space] Drift, [H] Horn, [R] Radio, [F] Exit`);
+                setTimeout(() => {
+                  setBannerAlert(null);
+                  setRadioBanner(null);
+                }, 4500);
+              } else if (nearbyStreetProp) {
                 handleInteractStreetProp(nearbyStreetProp);
               } else if (isNearFountain) {
                 setShowFreedomBellModal(true);
@@ -626,7 +798,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-sm shadow-2xl shadow-emerald-500/40 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
           >
             <span>
-              {nearbyStreetProp
+              {vehicleEngine.playerVehicle
+                ? `🚗 Exit ${vehicleEngine.playerVehicle.model} [F]`
+                : nearbyVehicle
+                ? `🚗 Drive ${nearbyVehicle.model} [F]`
+                : nearbyStreetProp
                 ? `${nearbyStreetProp.icon} ${nearbyStreetProp.name} [E]`
                 : isNearFountain
                 ? '🔔 Ring Freedom Bell (FIRE Summit) [E]'
@@ -646,8 +822,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         onAdvancePeriod={handleAdvancePeriod}
       />
 
-      {/* Bottom Right Inventory & Campaign Quick Bar */}
+      {/* Bottom Right Inventory & Phone Quick Bar */}
       <div className="absolute bottom-20 right-6 z-20 flex items-center gap-2 pointer-events-auto">
+        <button
+          onClick={() => {
+            soundFx.playPhoneChime();
+            setShowPhone(true);
+          }}
+          className="px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600/40 to-blue-600/40 hover:from-indigo-600/60 hover:to-blue-600/60 text-indigo-300 hover:text-white border border-indigo-500/50 text-xs font-bold shadow-xl flex items-center gap-2 cursor-pointer backdrop-blur-md transition-all"
+          title="Pull Up FinPhone [P]"
+        >
+          <Smartphone className="w-4 h-4 text-indigo-400" />
+          <span>Phone [P]</span>
+        </button>
+
         <button
           onClick={() => {
             soundFx.playClick();
@@ -862,6 +1050,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             setBannerAlert(`👑 Generation ${nextState.generationalLegacy?.generation} has begun! Welcome, ${nextState.character.name}!`);
           }}
           onClose={() => setShowLegacyModal(false)}
+        />
+      )}
+
+      {/* GTA Smartphone (iFruit FinPhone 16 Pro) */}
+      {showPhone && (
+        <FinPhoneModal
+          state={state}
+          onUpdateState={onUpdateState}
+          onClose={() => setShowPhone(false)}
+          onAlert={(msg) => {
+            setBannerAlert(msg);
+            setTimeout(() => setBannerAlert(null), 4000);
+          }}
         />
       )}
 

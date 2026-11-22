@@ -1,5 +1,6 @@
 import { TILE_SIZE, MAP_WIDTH, MAP_HEIGHT, BUILDINGS, BuildingEntrance } from '../world/mapData';
 import { STREET_PROPS, StreetProp } from '../world/streetProps';
+import { vehicleEngine } from './vehicleEngine';
 
 /**
  * Procedural Canvas 2D World Renderer for Prosperity City Metropolis.
@@ -195,10 +196,16 @@ export function renderWorldMap(
   renderCleanEnergyWindmills(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
   renderStreetProps(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
 
-  // 3. Draw Ambient Traffic (Cars STRICTLY confined to asphalt roads, NEVER in water!)
-  renderTrafficAndCruisingCars(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
+  // 3. Draw GTA 6 Highway GPS Navigation Route (Breadcrumbs toward active quest objective)
+  renderGPSNavigationRoute(ctx, cameraX, cameraY, canvasWidth, canvasHeight, questTargetBuildingId || activeBuildingId);
 
-  // 4. Draw All 20 Distinct Buildings with 2.5D Customized Architecture
+  // 4. Draw Tire Drift Skid Marks & Smoke Particles on Asphalt
+  renderTireSkidMarks(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
+
+  // 5. Draw Driveable Vehicles, Supercars, Taxis & Police Cruisers (Strictly bounded to roads!)
+  renderDriveableVehicles(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
+
+  // 6. Draw All 20 Distinct Buildings with 2.5D Customized Architecture
   BUILDINGS.forEach((bldg) => {
     const isHighlighted = bldg.id === activeBuildingId;
     const isQuestTarget = bldg.id === questTargetBuildingId;
@@ -292,182 +299,292 @@ function renderPlazaFountain(
 }
 
 /**
- * Animated Ambient Cruising Cars on Metropolitan Avenues
- * CRITICAL FIX: Cars are strictly bounded to the road network (x from 17*40 to 78*40)!
- * They turn or reverse at road bounds and NEVER cross past x = 79 into the beach or ocean water!
+ * GTA 6 Highway GPS Navigation Route Line
+ * Draws glowing road-following waypoints and animated chevrons towards the active objective.
  */
-function renderTrafficAndCruisingCars(
+function renderGPSNavigationRoute(
+  ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  cameraY: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  targetBuildingId?: string | null
+) {
+  if (!targetBuildingId) return;
+  const bldg = BUILDINGS.find((b) => b.id === targetBuildingId);
+  if (!bldg) return;
+
+  const targetWorldX = bldg.tileX * TILE_SIZE;
+  const targetWorldY = bldg.tileY * TILE_SIZE;
+
+  const startScreenX = canvasWidth / 2;
+  const startScreenY = canvasHeight / 2;
+  const endScreenX = targetWorldX - cameraX + canvasWidth / 2;
+  const endScreenY = targetWorldY - cameraY + canvasHeight / 2;
+
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const midScreenX = endScreenX;
+  const midScreenY = startScreenY;
+
+  // Outer Neon Glow
+  ctx.strokeStyle = 'rgba(6, 182, 212, 0.35)';
+  ctx.lineWidth = 10;
+  ctx.beginPath();
+  ctx.moveTo(startScreenX, startScreenY);
+  ctx.lineTo(midScreenX, midScreenY);
+  ctx.lineTo(endScreenX, endScreenY);
+  ctx.stroke();
+
+  // Core Animated Dashed GPS Line
+  ctx.strokeStyle = '#22d3ee';
+  ctx.lineWidth = 4;
+  ctx.setLineDash([14, 10]);
+  ctx.lineDashOffset = -(Date.now() / 30);
+  ctx.beginPath();
+  ctx.moveTo(startScreenX, startScreenY);
+  ctx.lineTo(midScreenX, midScreenY);
+  ctx.lineTo(endScreenX, endScreenY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Destination Marker on road
+  ctx.fillStyle = '#f59e0b';
+  ctx.beginPath();
+  ctx.arc(endScreenX, endScreenY, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/**
+ * Render Tire Drift Skid Marks & Burnout Smoke on Asphalt
+ */
+function renderTireSkidMarks(
   ctx: CanvasRenderingContext2D,
   cameraX: number,
   cameraY: number,
   canvasWidth: number,
   canvasHeight: number
 ) {
-  const time = Date.now() / 1000;
+  // Skid Marks
+  vehicleEngine.skidMarks.forEach((sm) => {
+    const screenX = sm.x - cameraX + canvasWidth / 2;
+    const screenY = sm.y - cameraY + canvasHeight / 2;
+    if (screenX < -50 || screenX > canvasWidth + 50 || screenY < -50 || screenY > canvasHeight + 50) return;
 
-  // Road boundary limits in world pixels:
-  // West boundary: tile 17 * 40 = 680 px
-  // East boundary: tile 78 * 40 = 3120 px (Road stops before beach at tile 81 and water at tile 84!)
-  const minRoadX = 17 * TILE_SIZE;
-  const maxRoadX = 78 * TILE_SIZE;
-  const roadSpanX = maxRoadX - minRoadX;
-
-  const minRoadY = 15 * TILE_SIZE;
-  const maxRoadY = 57 * TILE_SIZE;
-  const roadSpanY = maxRoadY - minRoadY;
-
-  // Horizontal Cruising Cars (Avenues 1, 2, 3, 4)
-  const horizontalCars = [
-    // Avenue 1 Eastbound (y = 14.3)
-    { id: 'c1', color: '#facc15', roofColor: '#ca8a04', speed: 110, y: 14.3 * TILE_SIZE, offset: 200, dir: 1 },
-    { id: 'c2', color: '#0ea5e9', roofColor: '#0284c7', speed: 95, y: 14.3 * TILE_SIZE, offset: 1400, dir: 1 },
-    // Avenue 1 Westbound (y = 15.3)
-    { id: 'c3', color: '#ef4444', roofColor: '#b91c1c', speed: 105, y: 15.3 * TILE_SIZE, offset: 600, dir: -1 },
-    // Avenue 2 Eastbound (y = 28.3)
-    { id: 'c4', color: '#10b981', roofColor: '#047857', speed: 90, y: 28.3 * TILE_SIZE, offset: 800, dir: 1 },
-    // Avenue 2 Westbound (y = 29.3)
-    { id: 'c5', color: '#a855f7', roofColor: '#7e22ce', speed: 125, y: 29.3 * TILE_SIZE, offset: 1900, dir: -1 },
-    // Avenue 3 Eastbound (y = 42.3)
-    { id: 'c6', color: '#f97316', roofColor: '#c2410c', speed: 100, y: 42.3 * TILE_SIZE, offset: 300, dir: 1 },
-    // Avenue 3 Westbound (y = 43.3)
-    { id: 'c7', color: '#38bdf8', roofColor: '#0284c7', speed: 115, y: 43.3 * TILE_SIZE, offset: 1100, dir: -1 },
-    // Avenue 4 Eastbound (y = 56.3)
-    { id: 'c8', color: '#ec4899', roofColor: '#be185d', speed: 95, y: 56.3 * TILE_SIZE, offset: 500, dir: 1 },
-  ];
-
-  horizontalCars.forEach((car) => {
-    let worldX: number;
-    if (car.dir === 1) {
-      worldX = minRoadX + ((time * car.speed + car.offset) % roadSpanX);
-    } else {
-      worldX = maxRoadX - ((time * car.speed + car.offset) % roadSpanX);
-    }
-
-    const screenX = worldX - cameraX + canvasWidth / 2;
-    const screenY = car.y - cameraY + canvasHeight / 2;
-
-    // Frustum cull
-    if (screenX < -60 || screenX > canvasWidth + 60 || screenY < -40 || screenY > canvasHeight + 40) {
-      return;
-    }
-
-    renderCarSprite(ctx, screenX, screenY, car.color, car.roofColor, car.dir);
+    ctx.save();
+    ctx.translate(screenX, screenY);
+    ctx.rotate(sm.angle);
+    ctx.fillStyle = `rgba(15, 23, 42, ${sm.opacity})`;
+    ctx.fillRect(-7, -7, 14, 3);
+    ctx.fillRect(-7, 4, 14, 3);
+    ctx.restore();
   });
 
-  // Vertical Cruising Traffic (North/South on Streets x = 32.5, 44.5, 68.5)
-  const verticalCars = [
-    { id: 'vc1', color: '#3b82f6', roofColor: '#1d4ed8', speed: 90, x: 32.3 * TILE_SIZE, offset: 100, dir: 1 },
-    { id: 'vc2', color: '#f59e0b', roofColor: '#d97706', speed: 105, x: 44.3 * TILE_SIZE, offset: 800, dir: -1 },
-    { id: 'vc3', color: '#10b981', roofColor: '#059669', speed: 85, x: 68.3 * TILE_SIZE, offset: 1500, dir: 1 },
-  ];
-
-  verticalCars.forEach((car) => {
-    let worldY: number;
-    if (car.dir === 1) {
-      worldY = minRoadY + ((time * car.speed + car.offset) % roadSpanY);
-    } else {
-      worldY = maxRoadY - ((time * car.speed + car.offset) % roadSpanY);
-    }
-
-    const screenX = car.x - cameraX + canvasWidth / 2;
-    const screenY = worldY - cameraY + canvasHeight / 2;
-
-    if (screenX < -60 || screenX > canvasWidth + 60 || screenY < -40 || screenY > canvasHeight + 40) {
-      return;
-    }
-
-    renderVerticalCarSprite(ctx, screenX, screenY, car.color, car.roofColor, car.dir);
+  // Smoke Particles
+  vehicleEngine.smokeParticles.forEach((p) => {
+    const screenX = p.x - cameraX + canvasWidth / 2;
+    const screenY = p.y - cameraY + canvasHeight / 2;
+    if (screenX < -30 || screenX > canvasWidth + 30 || screenY < -30 || screenY > canvasHeight + 30) return;
+    ctx.fillStyle = `rgba(226, 232, 240, ${p.alpha})`;
+    ctx.beginPath();
+    ctx.arc(screenX, screenY, p.size, 0, Math.PI * 2);
+    ctx.fill();
   });
 }
 
-function renderCarSprite(
+/**
+ * Render Driveable Vehicles, Supercars, Taxis & Police Cruisers
+ * Full 360-degree rotation, glowing underglow, dynamic headlights, brake lights & police sirens.
+ */
+function renderDriveableVehicles(
   ctx: CanvasRenderingContext2D,
-  screenX: number,
-  screenY: number,
-  color: string,
-  roofColor: string,
-  dir: number
+  cameraX: number,
+  cameraY: number,
+  canvasWidth: number,
+  canvasHeight: number
 ) {
-  // Shadow
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-  ctx.beginPath();
-  ctx.ellipse(screenX + 16, screenY + 12, 18, 6, 0, 0, Math.PI * 2);
-  ctx.fill();
+  vehicleEngine.vehicles.forEach((veh) => {
+    const screenX = veh.x - cameraX + canvasWidth / 2;
+    const screenY = veh.y - cameraY + canvasHeight / 2;
 
-  // Car Body Chassis
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.roundRect(screenX, screenY - 4, 32, 16, 4);
-  ctx.fill();
+    if (screenX < -120 || screenX > canvasWidth + 120 || screenY < -120 || screenY > canvasHeight + 120) {
+      return;
+    }
 
-  // Car Cabin / Roof
-  ctx.fillStyle = roofColor;
-  ctx.beginPath();
-  ctx.roundRect(screenX + 6, screenY - 7, 18, 14, 3);
-  ctx.fill();
+    ctx.save();
+    ctx.translate(screenX, screenY);
+    ctx.rotate(veh.angle);
 
-  // Windshield & Lights
-  ctx.fillStyle = '#bae6fd';
-  if (dir === 1) {
-    ctx.fillRect(screenX + 20, screenY - 5, 3, 10);
-    ctx.fillRect(screenX + 7, screenY - 5, 2, 10);
-    // Headlights
+    // 1. Ground Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 24, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Neon Underglow (Supercars & Player)
+    if (veh.type === 'SUPERCAR' || veh.isPlayerOccupied) {
+      ctx.fillStyle = veh.accentColor || '#38bdf8';
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 26, 15, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1.0;
+    }
+
+    // 3. Headlight Beams (casting forward onto road)
+    if (veh.headlightsActive) {
+      const grad = ctx.createRadialGradient(24, 0, 5, 80, 0, 65);
+      grad.addColorStop(0, 'rgba(254, 240, 138, 0.45)');
+      grad.addColorStop(1, 'rgba(254, 240, 138, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(18, -8);
+      ctx.lineTo(85, -28);
+      ctx.lineTo(85, 28);
+      ctx.lineTo(18, 8);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 4. Vehicle Body Chassis by Type
+    if (veh.type === 'SUPERCAR') {
+      // Sleek Wedge Aerodynamic Supercar
+      ctx.fillStyle = veh.color;
+      ctx.beginPath();
+      ctx.roundRect(-20, -10, 40, 20, [3, 8, 8, 3]);
+      ctx.fill();
+
+      // Carbon Fiber Roof / Cockpit
+      ctx.fillStyle = veh.roofColor;
+      ctx.beginPath();
+      ctx.roundRect(-8, -7, 20, 14, 4);
+      ctx.fill();
+
+      // Tinted Glass Canopy
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(-2, -5, 12, 10);
+
+      // Rear Spoiler Wing
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(-22, -11, 4, 22);
+
+      // Dual Exhaust Pipes
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(-21, -5, 2, 2);
+      ctx.fillRect(-21, 3, 2, 2);
+    } else if (veh.type === 'POLICE') {
+      // Metropolitan Police Interceptor
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.roundRect(-19, -9, 38, 18, 4);
+      ctx.fill();
+
+      // White Doors & White Roof
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-8, -9, 16, 18);
+
+      // Windshield
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(-2, -6, 12, 12);
+
+      // Flashing Emergency Lightbar (Red & Blue)
+      const strobe = Math.floor(Date.now() / 90) % 2;
+      ctx.fillStyle = strobe === 0 ? '#ef4444' : '#3b82f6';
+      ctx.fillRect(-4, -4, 8, 8);
+
+      if (veh.sirenActive) {
+        ctx.fillStyle = strobe === 0 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(59, 130, 246, 0.4)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 45, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (veh.type === 'TAXI') {
+      // Classic Yellow City Cab
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.roundRect(-19, -9, 38, 18, 4);
+      ctx.fill();
+
+      // Black Checkerboard Stripe
+      ctx.fillStyle = '#18181b';
+      for (let i = -16; i < 16; i += 6) {
+        ctx.fillRect(i, -9, 3, 2);
+        ctx.fillRect(i + 3, 7, 3, 2);
+      }
+
+      // Roof "TAXI" Sign
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(-4, -3, 8, 6);
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 5px sans-serif';
+      ctx.fillText('CAB', -3, 1.5);
+    } else if (veh.type === 'VAN') {
+      // Commercial Delivery Van
+      ctx.fillStyle = veh.color;
+      ctx.beginPath();
+      ctx.roundRect(-22, -10, 44, 20, 3);
+      ctx.fill();
+
+      ctx.fillStyle = veh.roofColor;
+      ctx.fillRect(-20, -8, 30, 16);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(10, -7, 8, 14);
+    } else {
+      // Luxury Executive Sedan
+      ctx.fillStyle = veh.color;
+      ctx.beginPath();
+      ctx.roundRect(-19, -9, 38, 18, 4);
+      ctx.fill();
+
+      ctx.fillStyle = veh.roofColor;
+      ctx.beginPath();
+      ctx.roundRect(-8, -6, 20, 12, 3);
+      ctx.fill();
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(-3, -5, 12, 10);
+    }
+
+    // 5. Headlight Lamps (Front)
     ctx.fillStyle = '#fef08a';
-    ctx.fillRect(screenX + 31, screenY - 2, 2, 3);
-    ctx.fillRect(screenX + 31, screenY + 7, 2, 3);
-    // Taillights
-    ctx.fillStyle = '#ef4444';
-    ctx.fillRect(screenX - 1, screenY - 2, 2, 3);
-    ctx.fillRect(screenX - 1, screenY + 7, 2, 3);
-  } else {
-    ctx.fillRect(screenX + 9, screenY - 5, 3, 10);
-    ctx.fillRect(screenX + 23, screenY - 5, 2, 10);
-    // Headlights
-    ctx.fillStyle = '#fef08a';
-    ctx.fillRect(screenX - 1, screenY - 2, 2, 3);
-    ctx.fillRect(screenX - 1, screenY + 7, 2, 3);
-    // Taillights
-    ctx.fillStyle = '#ef4444';
-    ctx.fillRect(screenX + 31, screenY - 2, 2, 3);
-    ctx.fillRect(screenX + 31, screenY + 7, 2, 3);
-  }
-}
+    ctx.fillRect(18, -7, 2, 3);
+    ctx.fillRect(18, 4, 2, 3);
 
-function renderVerticalCarSprite(
-  ctx: CanvasRenderingContext2D,
-  screenX: number,
-  screenY: number,
-  color: string,
-  roofColor: string,
-  dir: number
-) {
-  // Shadow
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-  ctx.beginPath();
-  ctx.ellipse(screenX + 8, screenY + 16, 8, 18, 0, 0, Math.PI * 2);
-  ctx.fill();
+    // 6. Taillights & Glowing Brake Lights (Rear)
+    if (veh.brakeLightsActive) {
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(-21, -8, 3, 4);
+      ctx.fillRect(-21, 4, 3, 4);
+      // Ambient glow
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+      ctx.beginPath();
+      ctx.arc(-22, -6, 7, 0, Math.PI * 2);
+      ctx.arc(-22, 6, 7, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = '#991b1b';
+      ctx.fillRect(-20, -7, 2, 3);
+      ctx.fillRect(-20, 4, 2, 3);
+    }
 
-  // Car Body Chassis (vertical)
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.roundRect(screenX - 2, screenY, 16, 32, 4);
-  ctx.fill();
+    // 7. Player Occupied Indicator
+    if (veh.isPlayerOccupied) {
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
-  // Cabin
-  ctx.fillStyle = roofColor;
-  ctx.beginPath();
-  ctx.roundRect(screenX + 1, screenY + 6, 10, 18, 3);
-  ctx.fill();
-
-  // Headlights
-  ctx.fillStyle = '#fef08a';
-  if (dir === 1) {
-    ctx.fillRect(screenX, screenY + 31, 3, 2);
-    ctx.fillRect(screenX + 9, screenY + 31, 3, 2);
-  } else {
-    ctx.fillRect(screenX, screenY - 1, 3, 2);
-    ctx.fillRect(screenX + 9, screenY - 1, 3, 2);
-  }
+    ctx.restore();
+  });
 }
 
 /**
