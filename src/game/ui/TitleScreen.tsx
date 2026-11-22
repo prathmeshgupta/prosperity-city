@@ -17,7 +17,8 @@ import {
   UserCheck,
   Clock,
   Sliders,
-  Gamepad2
+  Gamepad2,
+  Target
 } from 'lucide-react';
 import { ProgressionSpeed, LifeFocus } from '../../types/game';
 
@@ -28,18 +29,69 @@ interface TitleScreenProps {
 }
 
 export const ARCHETYPES = [
+  // -------------------------------------------------------------------------
+  // 4 SIGNATURE LIFECYCLE ORIGIN STORIES (CFP® / CFA® Master Scenarios)
+  // -------------------------------------------------------------------------
   {
     id: 'archetype_fresh_grad',
     name: 'Maya Lin',
-    role: 'The Graduate',
+    role: 'The Tech Graduate',
     avatar: '🎓',
-    salary: 52000,
+    salary: 68000,
     cash: 1200,
-    debt: 28000,
+    debt: 32000,
     difficulty: 'Normal',
-    desc: 'Broke with $28,000 in student loans, but a clean slate with 40+ years of compounding.',
-    perk: 'Fast learner: University certificates take 25% less time.',
+    isSignature: true,
+    desc: 'Age 23. Fresh CS graduate with $32,000 in student loans and $1,200 cash, but a 42-year compounding runway and an employer offering a 50% 401(k) match up to 6%.',
+    dilemma: 'CFP® Dilemma: Capture 100% employer match vs aggressive student debt payoff vs 3-month emergency buffer.',
+    perk: 'Fast learner: University certifications complete in 25% less time; high long-term market beta.',
   },
+  {
+    id: 'archetype_doctor',
+    name: 'Dr. Julian Vance',
+    role: 'The Resident Physician',
+    avatar: '👨‍⚕️',
+    salary: 68000,
+    cash: 2500,
+    debt: 240000,
+    difficulty: 'Hard',
+    isSignature: true,
+    desc: 'Age 31. Third-year internal medicine resident working 75-hour hospital weeks. High future attending salary ($220k+), but wrestling with $240,000 in student loans and elevated burnout risk.',
+    dilemma: 'CFP® Dilemma: SAVE / PSLF 10-year loan forgiveness vs private refinance; protecting human capital with Own-Occupation Disability Insurance.',
+    perk: 'Human Capital Surge: Guaranteed salary leap to $220,000+ upon completing residency shifts.',
+  },
+  {
+    id: 'archetype_tech_founder',
+    name: 'Elena Rostova',
+    role: 'The Solo Founder',
+    avatar: '🚀',
+    salary: 42000,
+    cash: 5000,
+    debt: 0,
+    difficulty: 'Challenging',
+    isSignature: true,
+    desc: 'Age 28. Software engineer building a pre-revenue B2B FinTech platform. Left corporate job with $15,000 in savings and zero debt. Living on a tight 12-month cash runway.',
+    dilemma: 'CFA® Dilemma: Startup cash runway preservation vs venture capital dilution vs bootstrapping to profitability.',
+    perk: 'Equity Multiplier: Retained founder equity yields 3x payouts on venture funding and acquisition events.',
+  },
+  {
+    id: 'archetype_family_parent',
+    name: 'Marcus & Sarah Bell',
+    role: 'Dual-Income Family',
+    avatar: '🏡',
+    salary: 145000,
+    cash: 6500,
+    debt: 380000,
+    difficulty: 'Challenging',
+    isSignature: true,
+    desc: 'Ages 35 & 34. Dual-career household raising two kids (ages 4 and 7). $145,000 combined income with a $380,000 fixed suburban mortgage. Juggling college funds and retirement catch-up.',
+    dilemma: 'CFP® Dilemma: Funding 529 college savings vs parents’ 401(k)/Roth catch-up; term life insurance & revocable living trusts.',
+    perk: 'Dual-Income Resilience: Fixed-rate mortgage shields against inflation; dual health & retirement plans.',
+  },
+
+  // -------------------------------------------------------------------------
+  // ADDITIONAL DIVERSE ARCHETYPES
+  // -------------------------------------------------------------------------
   {
     id: 'archetype_freelancer',
     name: 'Leo Cruz',
@@ -49,7 +101,9 @@ export const ARCHETYPES = [
     cash: 3500,
     debt: 2400,
     difficulty: 'Normal',
+    isSignature: false,
     desc: 'Passionate digital designer with volatile monthly income. Needs strong emergency buffer.',
+    dilemma: 'Solo 401(k) / SEP-IRA tax optimization & quarterly estimated tax reserves.',
     perk: 'Side-hustle master: +35% bonus gig payouts at The Daily Grind Cafe.',
   },
   {
@@ -60,9 +114,11 @@ export const ARCHETYPES = [
     salary: 82000,
     cash: 4500,
     debt: 22300,
-    difficulty: 'Challenging',
+    difficulty: 'Normal',
+    isSignature: false,
     desc: 'High salary & 401(k) match, but wrestling with luxury car debt & lifestyle inflation.',
-    perk: 'Corporate ladder: +20% faster promotion bonuses at Career Tower.',
+    dilemma: 'Overcoming lifestyle inflation and eliminating toxic 7.5% auto loans.',
+    perk: 'Corporate ladder: +20% faster promotion bonuses at Apex Career Tower.',
   },
   {
     id: 'archetype_tradesperson',
@@ -73,7 +129,9 @@ export const ARCHETYPES = [
     cash: 5000,
     debt: 14000,
     difficulty: 'Easy',
+    isSignature: false,
     desc: 'Zero college debt, solid union income, ready to invest in index funds and real estate.',
+    dilemma: 'Converting high trade income into passive compounding index funds.',
     perk: 'Low debt drag: Starts with positive monthly cashflow immediately.',
   },
   {
@@ -85,44 +143,10 @@ export const ARCHETYPES = [
     cash: 1800,
     debt: 0,
     difficulty: 'Easy',
+    isSignature: false,
     desc: 'Age 18 high-school graduate. Zero debt and 45+ years of pure compounding time horizon.',
+    dilemma: 'Maximizing pure Roth IRA compounding velocity at the lowest lifetime tax rate.',
     perk: 'Compounding sprint: Earns +10% bonus returns on S&P 500 index funds.',
-  },
-  {
-    id: 'archetype_doctor',
-    name: 'Dr. Elena Rostova',
-    role: 'Resident Physician',
-    avatar: '👩‍⚕️',
-    salary: 72000,
-    cash: 2500,
-    debt: 195000,
-    difficulty: 'Hard',
-    desc: 'Massive $195k medical school debt, but high future physician earnings. High burnout risk.',
-    perk: 'Earning surge: Reaches $180k+ attending salary upon completing residency.',
-  },
-  {
-    id: 'archetype_tech_founder',
-    name: 'Zara Patel',
-    role: 'Tech Founder',
-    avatar: '🧑‍💻',
-    salary: 95000,
-    cash: 8000,
-    debt: 0,
-    difficulty: 'Normal',
-    desc: 'Software engineer building an AI startup. Moderate savings, zero debt, high risk/reward.',
-    perk: 'Equity multiplier: Startup equity events provide 3x venture capital payoffs.',
-  },
-  {
-    id: 'archetype_family_parent',
-    name: 'David Alvarez',
-    role: 'Working Parent',
-    avatar: '🏡',
-    salary: 78000,
-    cash: 4000,
-    debt: 210000,
-    difficulty: 'Challenging',
-    desc: 'Balancing mortgage payments, childcare, and opening 529 education funds for two kids.',
-    perk: 'Stability shield: Fixed mortgage provides an inflation hedge and tax shielding.',
   },
 ];
 
@@ -317,7 +341,13 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                     >
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-2xl">{arch.avatar}</span>
-                        {isSelected && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />}
+                        {arch.isSignature ? (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+                            ⭐ Origin
+                          </span>
+                        ) : isSelected ? (
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                        ) : null}
                       </div>
                       <div>
                         <div className="font-extrabold text-xs text-white leading-tight">{arch.name}</div>
@@ -333,6 +363,13 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                 <p className="text-xs text-slate-300 leading-relaxed italic">
                   "{activeArch.desc}"
                 </p>
+
+                {activeArch.dilemma && (
+                  <div className="p-2.5 rounded-xl bg-violet-950/40 border border-violet-500/30 text-[11px] text-violet-300 flex items-start gap-2">
+                    <Target className="w-4 h-4 text-violet-400 shrink-0 mt-0.5" />
+                    <span>{activeArch.dilemma}</span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-800/80 text-center font-mono">
                   <div className="p-2 rounded-xl bg-slate-900/60">

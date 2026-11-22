@@ -130,25 +130,41 @@ export function renderWorldMap(
           ctx.fillRect(screenX + 24, screenY + 22, 10, 2);
         }
 
-        // Road Intersections: Pedestrian Zebra Crosswalks
+        // Road Intersections: Pedestrian Zebra Crosswalks & Drainage Grates
         const isIntersection = isRoadH && isRoadV;
         if (isIntersection) {
           ctx.fillStyle = '#f8fafc';
           for (let i = 2; i < TILE_SIZE; i += 8) {
             ctx.fillRect(screenX + i, screenY + 4, 4, TILE_SIZE - 8);
           }
+          // Stormwater drain grates at road corners
+          if ((x === 16 || x === 32 || x === 44 || x === 58 || x === 68 || x === 78) &&
+              (y === 14 || y === 28 || y === 42 || y === 56)) {
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(screenX + 2, screenY + 2, 10, 10);
+            ctx.fillStyle = '#475569';
+            for (let g = 3; g < 11; g += 2.5) {
+              ctx.fillRect(screenX + g, screenY + 3, 1, 8);
+            }
+          }
         } else {
-          // Yellow double divider line
+          // Yellow double divider line with retroreflective cat's eyes
           ctx.fillStyle = '#facc15';
           if (isRoadH && (y === 14 || y === 28 || y === 42 || y === 56) && x % 2 === 0) {
             ctx.fillRect(screenX + 2, screenY + TILE_SIZE - 3, TILE_SIZE - 4, 3);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(screenX + TILE_SIZE / 2 - 1, screenY + TILE_SIZE - 4, 3, 4);
+            ctx.fillStyle = '#facc15';
           }
           if (isRoadV && (x === 16 || x === 32 || x === 44 || x === 58 || x === 68 || x === 78) && y % 2 === 0) {
             ctx.fillRect(screenX + TILE_SIZE - 3, screenY + 2, 3, TILE_SIZE - 4);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(screenX + TILE_SIZE - 4, screenY + TILE_SIZE / 2 - 1, 4, 3);
+            ctx.fillStyle = '#facc15';
           }
         }
       } else if ((isSidewalkH || isSidewalkV) && x <= 80) {
-        // Sidewalk paving stones with beveled borders
+        // Sidewalk paving stones with raised concrete curb edge
         ctx.fillStyle = '#334155';
         ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
         ctx.fillStyle = '#1e293b';
@@ -156,6 +172,26 @@ export function renderWorldMap(
         ctx.strokeStyle = '#475569';
         ctx.lineWidth = 1;
         ctx.strokeRect(screenX + 0.5, screenY + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+
+        // Raised Granite Curb edge facing roads
+        if (isSidewalkH) {
+          if (y === 13 || y === 27 || y === 41 || y === 55) {
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(screenX, screenY + TILE_SIZE - 3, TILE_SIZE, 3);
+          } else {
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(screenX, screenY, TILE_SIZE, 3);
+          }
+        }
+        if (isSidewalkV) {
+          if (x === 15 || x === 31 || x === 43 || x === 57 || x === 67 || x === 77) {
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(screenX + TILE_SIZE - 3, screenY, 3, TILE_SIZE);
+          } else {
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(screenX, screenY, 3, TILE_SIZE);
+          }
+        }
       } else if (isPlaza) {
         // Grand Central Plaza Herringbone Stone Brick
         ctx.fillStyle = '#1e293b';
@@ -195,6 +231,9 @@ export function renderWorldMap(
   renderStreetlampsAndGlow(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
   renderCleanEnergyWindmills(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
   renderStreetProps(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
+
+  // 2.5 Draw Overhead District Gateway Arches (Spanning Avenues and Streets)
+  renderDistrictGatewayArches(ctx, cameraX, cameraY, canvasWidth, canvasHeight);
 
   // 3. Draw GTA 6 Highway GPS Navigation Route (Breadcrumbs toward active quest objective)
   renderGPSNavigationRoute(ctx, cameraX, cameraY, canvasWidth, canvasHeight, questTargetBuildingId || activeBuildingId);
@@ -787,6 +826,297 @@ function renderCleanEnergyWindmills(
       ctx.lineTo(bladeTipX, bladeTipY);
       ctx.stroke();
     }
+  });
+}
+
+interface DistrictArch {
+  id: string;
+  name: string;
+  subtitle: string;
+  orientation: 'HORIZONTAL' | 'VERTICAL';
+  tileX: number;
+  tileY: number;
+  theme: {
+    pylonPrimary: string;
+    pylonTrim: string;
+    beamColor: string;
+    signBg: string;
+    signBorder: string;
+    textColor: string;
+    lanternGlow: string;
+  };
+}
+
+const DISTRICT_ARCHES: DistrictArch[] = [
+  {
+    id: 'arch_wall_street',
+    name: 'WALL STREET FINANCIAL CANYON',
+    subtitle: 'CAPITAL MARKETS • ASSET ALLOCATION • TREASURY',
+    orientation: 'HORIZONTAL',
+    tileX: 52,
+    tileY: 14,
+    theme: {
+      pylonPrimary: '#1e293b',
+      pylonTrim: '#f59e0b',
+      beamColor: '#0f172a',
+      signBg: '#090d16',
+      signBorder: '#06b6d4',
+      textColor: '#38bdf8',
+      lanternGlow: 'rgba(56, 189, 248, 0.45)',
+    },
+  },
+  {
+    id: 'arch_silicon_forge',
+    name: 'SILICON FORGE INNOVATION HUB',
+    subtitle: 'VENTURE CAPITAL • AI SYSTEMS • HIGH-EQUITY STARTUPS',
+    orientation: 'HORIZONTAL',
+    tileX: 28,
+    tileY: 14,
+    theme: {
+      pylonPrimary: '#1e1b4b',
+      pylonTrim: '#818cf8',
+      beamColor: '#312e81',
+      signBg: '#0f0e26',
+      signBorder: '#a855f7',
+      textColor: '#c084fc',
+      lanternGlow: 'rgba(168, 85, 247, 0.45)',
+    },
+  },
+  {
+    id: 'arch_civic_plaza',
+    name: 'REPUBLIC CIVIC PLAZA & FREEDOM SQUARE',
+    subtitle: 'MUNICIPAL REGISTRY • TAX BUREAU • FREEDOM BELL',
+    orientation: 'HORIZONTAL',
+    tileX: 42,
+    tileY: 28,
+    theme: {
+      pylonPrimary: '#334155',
+      pylonTrim: '#facc15',
+      beamColor: '#1e293b',
+      signBg: '#0f172a',
+      signBorder: '#f59e0b',
+      textColor: '#fbbf24',
+      lanternGlow: 'rgba(251, 191, 36, 0.45)',
+    },
+  },
+  {
+    id: 'arch_suburban_row',
+    name: 'OAK GROVE SUBURBAN ESTATES',
+    subtitle: 'RESIDENTIAL REAL ESTATE • DUPLEXES • FAMILY WEALTH',
+    orientation: 'HORIZONTAL',
+    tileX: 52,
+    tileY: 56,
+    theme: {
+      pylonPrimary: '#064e3b',
+      pylonTrim: '#34d399',
+      beamColor: '#022c22',
+      signBg: '#021e17',
+      signBorder: '#10b981',
+      textColor: '#4ade80',
+      lanternGlow: 'rgba(52, 211, 153, 0.45)',
+    },
+  },
+  {
+    id: 'arch_boardwalk',
+    name: 'OCEANFRONT MARINA & WEB3 BOARDWALK',
+    subtitle: 'PACIFIC WATERFRONT • HIGH-BETA FRONTIER • PRIVATE DOCKS',
+    orientation: 'HORIZONTAL',
+    tileX: 76,
+    tileY: 28,
+    theme: {
+      pylonPrimary: '#0c4a6e',
+      pylonTrim: '#38bdf8',
+      beamColor: '#075985',
+      signBg: '#082f49',
+      signBorder: '#0284c7',
+      textColor: '#7dd3fc',
+      lanternGlow: 'rgba(125, 211, 252, 0.45)',
+    },
+  },
+  {
+    id: 'arch_university',
+    name: 'UNIVERSITY HEIGHTS ACADEMIC QUAD',
+    subtitle: 'FINTWIST ACADEMY • COMPOUNDING LAWS • CERTIFICATIONS',
+    orientation: 'VERTICAL',
+    tileX: 16,
+    tileY: 18,
+    theme: {
+      pylonPrimary: '#3b0764',
+      pylonTrim: '#c084fc',
+      beamColor: '#581c87',
+      signBg: '#2e0249',
+      signBorder: '#a855f7',
+      textColor: '#e9d5ff',
+      lanternGlow: 'rgba(192, 132, 252, 0.45)',
+    },
+  },
+];
+
+/**
+ * Render Overhead District Gateway Arches across Major Avenues & Streets
+ */
+function renderDistrictGatewayArches(
+  ctx: CanvasRenderingContext2D,
+  cameraX: number,
+  cameraY: number,
+  canvasWidth: number,
+  canvasHeight: number
+) {
+  DISTRICT_ARCHES.forEach((arch) => {
+    const screenCenterX = arch.tileX * TILE_SIZE - cameraX + canvasWidth / 2;
+    const screenCenterY = arch.tileY * TILE_SIZE - cameraY + canvasHeight / 2;
+
+    // Culling check
+    if (
+      screenCenterX < -140 ||
+      screenCenterX > canvasWidth + 140 ||
+      screenCenterY < -140 ||
+      screenCenterY > canvasHeight + 140
+    ) {
+      return;
+    }
+
+    ctx.save();
+
+    if (arch.orientation === 'HORIZONTAL') {
+      // Avenue running East-West (2 tiles = 80px high). Arch spans North pylon to South pylon.
+      const roadHeight = 2 * TILE_SIZE; // 80px
+      const archX = screenCenterX;
+      const topPylonY = screenCenterY - 14;
+      const botPylonY = screenCenterY + roadHeight + 8;
+
+      // 1. Cast shadow of overhead structure onto asphalt
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.fillRect(archX - 6, screenCenterY, 12, roadHeight);
+
+      // 2. North Pylon (Sidewalk top)
+      ctx.fillStyle = arch.theme.pylonPrimary;
+      ctx.fillRect(archX - 10, topPylonY - 18, 20, 28);
+      ctx.fillStyle = arch.theme.pylonTrim;
+      ctx.fillRect(archX - 12, topPylonY + 6, 24, 4);
+      ctx.fillRect(archX - 8, topPylonY - 22, 16, 4);
+
+      // 3. South Pylon (Sidewalk bottom)
+      ctx.fillStyle = arch.theme.pylonPrimary;
+      ctx.fillRect(archX - 10, botPylonY - 10, 20, 28);
+      ctx.fillStyle = arch.theme.pylonTrim;
+      ctx.fillRect(archX - 12, botPylonY + 14, 24, 4);
+      ctx.fillRect(archX - 8, botPylonY - 14, 16, 4);
+
+      // 4. Overhead Span Truss & Gantry Beam
+      ctx.fillStyle = arch.theme.beamColor;
+      ctx.fillRect(archX - 5, topPylonY - 4, 10, botPylonY - topPylonY + 4);
+
+      // 5. Center Arch Header Banner / Signboard
+      const signW = 190;
+      const signH = 34;
+      const signX = archX - signW / 2;
+      const signY = screenCenterY + roadHeight / 2 - signH / 2;
+
+      ctx.fillStyle = arch.theme.signBg;
+      ctx.beginPath();
+      ctx.roundRect(signX, signY, signW, signH, 8);
+      ctx.fill();
+
+      ctx.strokeStyle = arch.theme.signBorder;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Sign Typography
+      ctx.textAlign = 'center';
+      ctx.fillStyle = arch.theme.textColor;
+      ctx.font = 'bold 9.5px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText(arch.name, archX, signY + 14);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.font = 'bold 6.5px monospace';
+      ctx.fillText(arch.subtitle, archX, signY + 26);
+
+      // 6. Suspended coach lantern lights on each pylon
+      [topPylonY, botPylonY].forEach((pY) => {
+        const grad = ctx.createRadialGradient(archX, pY, 2, archX, pY, 26);
+        grad.addColorStop(0, arch.theme.lanternGlow);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(archX, pY, 26, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        ctx.arc(archX, pY, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+    } else {
+      // Street running North-South (2 tiles = 80px wide). Arch spans West pylon to East pylon.
+      const roadWidth = 2 * TILE_SIZE; // 80px
+      const archY = screenCenterY;
+      const westPylonX = screenCenterX - 14;
+      const eastPylonX = screenCenterX + roadWidth + 8;
+
+      // 1. Cast shadow onto road
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.fillRect(screenCenterX, archY - 6, roadWidth, 12);
+
+      // 2. West Pylon
+      ctx.fillStyle = arch.theme.pylonPrimary;
+      ctx.fillRect(westPylonX - 18, archY - 10, 28, 20);
+      ctx.fillStyle = arch.theme.pylonTrim;
+      ctx.fillRect(westPylonX + 6, archY - 12, 4, 24);
+
+      // 3. East Pylon
+      ctx.fillStyle = arch.theme.pylonPrimary;
+      ctx.fillRect(eastPylonX - 10, archY - 10, 28, 20);
+      ctx.fillStyle = arch.theme.pylonTrim;
+      ctx.fillRect(eastPylonX - 14, archY - 12, 4, 24);
+
+      // 4. Overhead Span Truss Beam
+      ctx.fillStyle = arch.theme.beamColor;
+      ctx.fillRect(westPylonX - 4, archY - 5, eastPylonX - westPylonX + 8, 10);
+
+      // 5. Overhead Banner Sign
+      const signW = 180;
+      const signH = 32;
+      const signX = screenCenterX + roadWidth / 2 - signW / 2;
+      const signY = archY - 24;
+
+      ctx.fillStyle = arch.theme.signBg;
+      ctx.beginPath();
+      ctx.roundRect(signX, signY, signW, signH, 8);
+      ctx.fill();
+
+      ctx.strokeStyle = arch.theme.signBorder;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = arch.theme.textColor;
+      ctx.font = 'bold 9.5px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText(arch.name, screenCenterX + roadWidth / 2, signY + 13);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.font = 'bold 6.5px monospace';
+      ctx.fillText(arch.subtitle, screenCenterX + roadWidth / 2, signY + 24);
+
+      // Lanterns
+      [westPylonX, eastPylonX].forEach((pX) => {
+        const grad = ctx.createRadialGradient(pX, archY, 2, pX, archY, 24);
+        grad.addColorStop(0, arch.theme.lanternGlow);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(pX, archY, 24, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        ctx.arc(pX, archY, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    ctx.restore();
   });
 }
 

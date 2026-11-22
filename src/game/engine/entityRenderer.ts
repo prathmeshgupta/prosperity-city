@@ -16,6 +16,7 @@ export interface PlayerEntity {
   archetypeId?: string;
   vehicle?: 'FOOT' | 'BICYCLE' | 'CAR';
   hasPet?: boolean;
+  netWorth?: number;
 }
 
 export function renderEntities(
@@ -297,8 +298,8 @@ export function renderEntities(
   ctx.ellipse(playerScreenX, playerScreenY + 14, 12, 5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Render High-Fidelity Archetype Avatar
-  const spec = getAvatarVisualSpec(player.avatarEmoji, player.archetypeId);
+  // Render High-Fidelity Archetype Avatar with Wealth Tier Progression
+  const spec = getAvatarVisualSpec(player.avatarEmoji, player.archetypeId, player.netWorth || 0);
   renderPlayerSprite(
     ctx,
     playerScreenX,

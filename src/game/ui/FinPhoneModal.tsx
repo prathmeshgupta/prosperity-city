@@ -1,28 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { GameState } from '../../types/game';
 import { radioEngine, RadioStation, RADIO_STATIONS } from '../engine/radioEngine';
-import { wantedLevelEngine } from '../engine/wantedLevelEngine';
 import { soundFx } from '../../audio/soundFx';
-import { getPortfolioValue, executeBuyAsset, executeSellAsset } from '../../engine/gameEngine';
+import { 
+  getPortfolioValue, 
+  getNetWorth, 
+  executeBuyAsset, 
+  executeSellAsset 
+} from '../../engine/gameEngine';
 import { 
   X, 
   Wifi, 
   BatteryCharging, 
   TrendingUp, 
-  Share2, 
   Building, 
   Landmark, 
   Radio, 
   Camera, 
-  ShieldAlert, 
-  Send, 
-  Heart, 
-  Repeat, 
   DollarSign, 
   ArrowUpRight, 
   ArrowDownLeft, 
   Sparkles,
-  Award
+  Award,
+  ShieldCheck,
+  Calculator,
+  Compass,
+  Activity,
+  Layers,
+  Info,
+  ChevronRight,
+  PieChart,
+  HelpCircle
 } from 'lucide-react';
 
 interface FinPhoneModalProps {
@@ -32,7 +40,14 @@ interface FinPhoneModalProps {
   onAlert: (msg: string) => void;
 }
 
-type PhoneApp = 'HOME' | 'FINTWIST' | 'ROBINTRADE' | 'LUXMANSIONS' | 'BANK' | 'LEGAL' | 'RADIO' | 'CAMERA';
+type TerminalApp = 
+  | 'HOME' 
+  | 'MARKETPULSE' 
+  | 'ALPHATRADE' 
+  | 'REALESTATE' 
+  | 'TREASURY' 
+  | 'ADVISORY' 
+  | 'RADIO';
 
 export const FinPhoneModal: React.FC<FinPhoneModalProps> = ({
   state,
@@ -40,191 +55,137 @@ export const FinPhoneModal: React.FC<FinPhoneModalProps> = ({
   onClose,
   onAlert,
 }) => {
-  const [currentApp, setCurrentApp] = useState<PhoneApp>('HOME');
+  const [currentApp, setCurrentApp] = useState<TerminalApp>('HOME');
   const [currentStation, setCurrentStation] = useState<RadioStation>(radioEngine.getCurrentStation());
-  const [stars, setStars] = useState<number>(wantedLevelEngine.getStars());
+  
+  // Custom trade dollar amount
+  const [tradeAmount, setTradeAmount] = useState<number>(100);
+  const [selectedAssetId, setSelectedAssetId] = useState<string>(state.assets[0]?.id || 'asset_sp500');
 
-  // Listen to radio engine changes
+  // Advisory tab states
+  const [targetRetirementSpending, setTargetRetirementSpending] = useState<number>(5000); // $5k/mo = $60k/yr
+  const [rothConversionAmount, setRothConversionAmount] = useState<number>(10000);
+
+  // Subscribe to radio engine
   useEffect(() => {
     return radioEngine.subscribe((st) => setCurrentStation(st));
   }, []);
 
-  // FinTwist Social Feed Posts
-  const [socialFeed, setSocialFeed] = useState([
-    {
-      id: 1,
-      author: 'Gordon Greed',
-      handle: '@GordonGreed',
-      avatar: '👔',
-      content: 'If you are not leveraged 10x, you are just an observer in the casino of life. Cash is for quitters.',
-      likes: 4210,
-      retweets: 890,
-      time: '2m ago',
-    },
-    {
-      id: 2,
-      author: 'Federal Reserve Wire',
-      handle: '@FedChairWire',
-      avatar: '🏛️',
-      content: 'Core CPI came in at 3.2%. Yield curve remains inverted. Higher for longer until morale improves.',
-      likes: 8940,
-      retweets: 2430,
-      time: '14m ago',
-    },
-    {
-      id: 3,
-      author: 'Satoshi Bro',
-      handle: '@CryptoWhale',
-      avatar: '🚀',
-      content: 'Just collateralized my penthouse for a 50x long on Bitcoin. It literally cannot go down.',
-      likes: 1240,
-      retweets: 512,
-      time: '32m ago',
-    },
-    {
-      id: 4,
-      author: 'IRS Enforcement Division',
-      handle: '@IRS_Official',
-      avatar: '⚖️',
-      content: 'Friendly reminder: Failure to report offshore shell accounts carries statutory fines plus criminal referrals.',
-      likes: 310,
-      retweets: 98,
-      time: '1h ago',
-    },
-  ]);
+  const netWorth = getNetWorth(state);
+  const portfolioVal = getPortfolioValue(state);
 
-  const [tweetDraft, setTweetDraft] = useState('');
+  // Approximate monthly living expenses for runway calculation
+  const monthlyExpenses = Math.max(
+    1500,
+    Math.round((state.character.annualSalary * 0.5) / 12) +
+    state.debts.reduce((sum, d) => sum + d.minimumMonthlyPayment, 0)
+  );
+  const emergencyMonths = (state.emergencyFund / monthlyExpenses).toFixed(1);
 
-  const handlePostTweet = () => {
-    if (!tweetDraft.trim()) return;
-    soundFx.playPhoneChime();
-    const newPost = {
-      id: Date.now(),
-      author: state.character.name,
-      handle: `@${state.character.name.toLowerCase().replace(/\s+/g, '')}`,
-      avatar: state.character.avatar,
-      content: tweetDraft,
-      likes: Math.floor(Math.random() * 200) + 15,
-      retweets: Math.floor(Math.random() * 50) + 5,
-      time: 'Just now',
-    };
-    setSocialFeed([newPost, ...socialFeed]);
-    setTweetDraft('');
-    state.totalXP += 30;
-    onUpdateState({ ...state });
-    onAlert('📱 FinTwist: Your tweet is going viral! (+30 XP)');
-  };
+  // 4% Safe Withdrawal Rule target
+  const fireTarget = (targetRetirementSpending * 12) / 0.04;
+  const fireProgressPct = Math.min(100, Math.round((netWorth / fireTarget) * 100));
 
-  const handleLegalSettlement = () => {
-    const res = wantedLevelEngine.settleWithAttorney(state.cash);
+  // Quick Trade execution
+  const handleBuy = (assetId: string, amount: number) => {
+    if (state.cash < amount) {
+      onAlert(`Insufficient cash balance ($${Math.round(state.cash).toLocaleString()} available).`);
+      return;
+    }
+    const res = executeBuyAsset(state, assetId, amount);
     if (res.success) {
-      state.cash -= res.cost;
-      setStars(0);
-      onUpdateState({ ...state });
+      soundFx.playCoin();
+      onUpdateState(res.nextState);
       onAlert(res.message);
     } else {
       onAlert(res.message);
     }
   };
 
-  const handleQuickTrade = (assetSymbol: string, price: number, isBuy: boolean) => {
-    // Match asset in state.assets
-    const targetAsset = state.assets.find(
-      (a) => a.symbol.toLowerCase() === assetSymbol.toLowerCase() || a.name.toLowerCase().includes(assetSymbol.toLowerCase())
-    ) || state.assets[0];
-
-    if (isBuy) {
-      if (targetAsset) {
-        const res = executeBuyAsset(state, targetAsset.id, price);
-        if (res.success) {
-          onUpdateState(res.nextState);
-          onAlert(res.message);
-        } else {
-          onAlert(res.message);
-        }
-      }
+  const handleSell = (assetId: string) => {
+    const pos = state.portfolio.find((p) => p.assetId === assetId);
+    if (!pos || pos.shares <= 0) {
+      onAlert('You do not hold any shares of this asset.');
+      return;
+    }
+    // Sell 25% of position or at least 1 share
+    const sharesToSell = Math.max(1, Math.min(pos.shares, pos.shares * 0.25));
+    const res = executeSellAsset(state, assetId, sharesToSell);
+    if (res.success) {
+      soundFx.playCoin();
+      onUpdateState(res.nextState);
+      onAlert(res.message);
     } else {
-      if (targetAsset) {
-        const pos = state.portfolio.find((p) => p.assetId === targetAsset.id);
-        if (!pos || pos.shares <= 0) {
-          onAlert(`You do not own any shares of ${targetAsset.name}.`);
-          return;
-        }
-        const res = executeSellAsset(state, targetAsset.id, Math.min(1, pos.shares));
-        if (res.success) {
-          onUpdateState(res.nextState);
-          onAlert(res.message);
-        } else {
-          onAlert(res.message);
-        }
-      }
+      onAlert(res.message);
     }
   };
 
-  const handleBuyMansion = (name: string, price: number, monthlyCashflow: number) => {
-    if (state.cash >= price) {
-      state.cash -= price;
-      state.sideHustles.push({
-        id: `mansion_${Date.now()}`,
-        title: name,
-        monthlyIncome: monthlyCashflow,
-        hoursPerWeek: 0,
-        startupCost: price,
-        isActive: true,
-        description: 'Passive luxury property rental yield.',
-      });
-      state.totalXP += 250;
-      soundFx.playLevelUp();
-      onUpdateState({ ...state });
-      onAlert(`🏰 Acquired ${name}! Rental cashflow +$${monthlyCashflow.toLocaleString()}/mo added!`);
-    } else {
-      onAlert(`Need $${price.toLocaleString()} to purchase ${name}.`);
+  // Real estate acquisition
+  const handleAcquireProperty = (name: string, price: number, monthlyIncome: number, downPaymentPct: number = 0.20) => {
+    const requiredDownPayment = price * downPaymentPct;
+    if (state.cash < requiredDownPayment) {
+      onAlert(`Requires $${Math.round(requiredDownPayment).toLocaleString()} down payment (20% of $${price.toLocaleString()}).`);
+      return;
     }
+
+    state.cash -= requiredDownPayment;
+    state.sideHustles.push({
+      id: `property_${Date.now()}`,
+      title: name,
+      monthlyIncome: monthlyIncome,
+      hoursPerWeek: 1,
+      startupCost: requiredDownPayment,
+      isActive: true,
+      description: `Income Property: $${monthlyIncome.toLocaleString()}/mo Net Operating Cashflow after debt service & maintenance.`,
+    });
+    state.totalXP += 300;
+    soundFx.playLevelUp();
+    onUpdateState({ ...state });
+    onAlert(`🏛️ Acquired ${name}! +$${monthlyIncome.toLocaleString()}/mo cashflow added.`);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center sm:justify-end sm:pr-12 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      {/* GTA Smartphone Body */}
-      <div className="relative w-[340px] h-[670px] bg-slate-950 rounded-[50px] p-4 border-[6px] border-slate-700 shadow-[0_0_60px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden text-slate-100 select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center sm:justify-end sm:pr-12 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
+      {/* Matte Titanium Executive Terminal Body */}
+      <div className="relative w-[360px] h-[720px] bg-slate-950 rounded-[48px] p-4 border-[5px] border-slate-700/80 shadow-[0_0_80px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden text-slate-100 select-none">
         
-        {/* Dynamic Island / Speaker Pill */}
-        <div className="absolute top-3 inset-x-0 mx-auto w-28 h-6 bg-black rounded-full flex items-center justify-center z-40">
-          <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-800 mr-2" />
-          <div className="w-2 h-2 rounded-full bg-emerald-500/80 animate-pulse" />
+        {/* Dynamic Island / Status Pill */}
+        <div className="absolute top-3.5 inset-x-0 mx-auto w-32 h-6 bg-black rounded-full flex items-center justify-between px-3 z-40 border border-slate-800/80">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[9px] font-mono font-extrabold text-emerald-400">FIN-OS</span>
+          </div>
+          <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-700" />
         </div>
 
         {/* Top Status Bar */}
-        <div className="flex items-center justify-between px-3 pt-1 pb-2 text-[11px] font-mono font-bold text-slate-400 z-30">
-          <span>9:41</span>
-          <div className="flex items-center gap-1.5">
-            {stars > 0 && (
-              <span className="text-amber-400 font-extrabold animate-pulse tracking-tight">
-                {'⭐'.repeat(stars)}
-              </span>
-            )}
+        <div className="flex items-center justify-between px-3 pt-1.5 pb-2 text-[11px] font-mono font-bold text-slate-400 z-30">
+          <span>9:41 AM</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-slate-400 font-sans">5G UW</span>
             <Wifi className="w-3.5 h-3.5 text-slate-300" />
             <BatteryCharging className="w-3.5 h-3.5 text-emerald-400" />
           </div>
         </div>
 
         {/* Smartphone Screen Content */}
-        <div className="flex-1 bg-gradient-to-b from-slate-900 to-slate-950 rounded-[38px] p-3 overflow-y-auto relative flex flex-col scrollbar-none border border-slate-800/80">
+        <div className="flex-1 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 rounded-[36px] p-3.5 overflow-y-auto relative flex flex-col scrollbar-none border border-slate-800/80">
           
-          {/* Top Bar with Back / Home Button */}
+          {/* Top Bar with Back / Navigation */}
           {currentApp !== 'HOME' && (
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-800 shrink-0">
               <button
                 onClick={() => {
                   soundFx.playClick();
                   setCurrentApp('HOME');
                 }}
-                className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer"
+                className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer transition-colors"
               >
-                ◀ Home
+                ◀ Terminal
               </button>
-              <span className="text-xs font-extrabold text-slate-200">
+              <div className="text-xs font-black tracking-wider text-slate-200 uppercase">
                 {currentApp}
-              </span>
+              </div>
               <button
                 onClick={onClose}
                 className="text-slate-400 hover:text-white cursor-pointer"
@@ -234,102 +195,136 @@ export const FinPhoneModal: React.FC<FinPhoneModalProps> = ({
             </div>
           )}
 
-          {/* APP 1: HOME SCREEN */}
+          {/* -------------------------------------------------- */}
+          {/* APP 1: HOME SCREEN (EXECUTIVE DASHBOARD)           */}
+          {/* -------------------------------------------------- */}
           {currentApp === 'HOME' && (
-            <div className="flex-1 flex flex-col justify-between py-2">
+            <div className="flex-1 flex flex-col justify-between py-1">
               <div>
-                {/* Time & Weather Widget */}
-                <div className="bg-slate-800/50 backdrop-blur-md rounded-2xl p-3.5 border border-slate-700/60 mb-4 shadow-lg">
+                {/* Executive Net Worth Card */}
+                <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-md rounded-2xl p-4 border border-slate-700/80 mb-3 shadow-xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+                  
                   <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-2xl font-black text-white">Prosperity OS</div>
-                      <div className="text-[11px] text-emerald-400 font-mono">
-                        ${Math.round(state.cash).toLocaleString()} Checking
-                      </div>
-                    </div>
-                    <div className="text-3xl">📱</div>
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                      Balance Sheet Net Worth
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                      Tier: {netWorth > 2000000 ? 'Legacy' : netWorth > 500000 ? 'Preservation' : netWorth > 100000 ? 'Ascent' : 'Accumulation'}
+                    </span>
                   </div>
-                  {stars > 0 && (
-                    <div className="mt-2 text-[10px] bg-red-950/80 border border-red-500/50 text-red-300 px-2 py-1 rounded-lg font-bold flex items-center gap-1.5 animate-pulse">
-                      <ShieldAlert className="w-3 h-3 text-red-400" />
-                      <span>SEC / IRS Investigation Active ({stars} Stars)!</span>
+
+                  <div className="text-2xl font-black text-white font-mono mt-1">
+                    ${Math.round(netWorth).toLocaleString()}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700/50 text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Checking Cash</span>
+                      <strong className="text-emerald-400 font-mono">${Math.round(state.cash).toLocaleString()}</strong>
                     </div>
-                  )}
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Invested Portfolio</span>
+                      <strong className="text-cyan-400 font-mono">${portfolioVal.toLocaleString()}</strong>
+                    </div>
+                  </div>
+
+                  {/* 4% FIRE Target Gauge */}
+                  <div className="mt-2.5 pt-2 border-t border-slate-700/40">
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                      <span>4% FIRE Freedom Target</span>
+                      <span className="font-mono text-amber-400 font-bold">{fireProgressPct}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
+                        style={{ width: `${fireProgressPct}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                {/* App Grid */}
-                <div className="grid grid-cols-3 gap-3.5 px-1">
-                  {/* FinTwist */}
+                {/* Macro Headline Ribbon */}
+                <div className="bg-slate-900/80 rounded-xl px-3 py-2 border border-slate-800 flex items-center gap-2 mb-3">
+                  <Activity className="w-3.5 h-3.5 text-cyan-400 shrink-0 animate-pulse" />
+                  <span className="text-[10px] text-slate-300 font-medium truncate">
+                    {state.economicHeadline || 'Fed maintains benchmark rate at 5.25%. Yield curve inverted.'}
+                  </span>
+                </div>
+
+                {/* Institutional App Grid (6 Core CFP/CFA Apps) */}
+                <div className="grid grid-cols-3 gap-3 px-1">
+                  {/* 1. MarketPulse */}
                   <button
                     onClick={() => {
                       soundFx.playClick();
-                      setCurrentApp('FINTWIST');
+                      setCurrentApp('MARKETPULSE');
                     }}
                     className="flex flex-col items-center gap-1 cursor-pointer group"
                   >
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-all">
-                      <Share2 className="w-6 h-6" />
+                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-all">
+                      <Activity className="w-6 h-6" />
                     </div>
-                    <span className="text-[11px] font-bold text-slate-300">FinTwist</span>
+                    <span className="text-[10px] font-bold text-slate-300 text-center">MarketPulse</span>
                   </button>
 
-                  {/* RobinTrade */}
+                  {/* 2. AlphaTrade */}
                   <button
                     onClick={() => {
                       soundFx.playClick();
-                      setCurrentApp('ROBINTRADE');
+                      setCurrentApp('ALPHATRADE');
                     }}
                     className="flex flex-col items-center gap-1 cursor-pointer group"
                   >
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-all">
+                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-all">
                       <TrendingUp className="w-6 h-6" />
                     </div>
-                    <span className="text-[11px] font-bold text-slate-300">RobinTrade</span>
+                    <span className="text-[10px] font-bold text-slate-300 text-center">AlphaTrade</span>
                   </button>
 
-                  {/* LuxMansions */}
+                  {/* 3. RealEstate Compass */}
                   <button
                     onClick={() => {
                       soundFx.playClick();
-                      setCurrentApp('LUXMANSIONS');
+                      setCurrentApp('REALESTATE');
                     }}
                     className="flex flex-col items-center gap-1 cursor-pointer group"
                   >
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-all">
+                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-all">
                       <Building className="w-6 h-6" />
                     </div>
-                    <span className="text-[11px] font-bold text-slate-300">Mansions</span>
+                    <span className="text-[10px] font-bold text-slate-300 text-center">RealEstate</span>
                   </button>
 
-                  {/* Bank Mobile */}
+                  {/* 4. Treasury Vault */}
                   <button
                     onClick={() => {
                       soundFx.playClick();
-                      setCurrentApp('BANK');
+                      setCurrentApp('TREASURY');
                     }}
                     className="flex flex-col items-center gap-1 cursor-pointer group"
                   >
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-all">
+                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-all">
                       <Landmark className="w-6 h-6" />
                     </div>
-                    <span className="text-[11px] font-bold text-slate-300">Bank</span>
+                    <span className="text-[10px] font-bold text-slate-300 text-center">Treasury</span>
                   </button>
 
-                  {/* Legal Fixer (BailBonds) */}
+                  {/* 5. Wealth & Tax Advisor */}
                   <button
                     onClick={() => {
                       soundFx.playClick();
-                      setCurrentApp('LEGAL');
+                      setCurrentApp('ADVISORY');
                     }}
                     className="flex flex-col items-center gap-1 cursor-pointer group"
                   >
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-rose-600 to-red-700 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-all">
-                      <ShieldAlert className="w-6 h-6" />
+                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-violet-600 to-fuchsia-600 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-all">
+                      <Calculator className="w-6 h-6" />
                     </div>
-                    <span className="text-[11px] font-bold text-slate-300">Legal Fixer</span>
+                    <span className="text-[10px] font-bold text-slate-300 text-center">Tax Advisor</span>
                   </button>
 
-                  {/* Radio */}
+                  {/* 6. Radio Broadcast */}
                   <button
                     onClick={() => {
                       soundFx.playClick();
@@ -337,305 +332,571 @@ export const FinPhoneModal: React.FC<FinPhoneModalProps> = ({
                     }}
                     className="flex flex-col items-center gap-1 cursor-pointer group"
                   >
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-pink-600 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-all">
+                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-rose-500 to-pink-600 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-all">
                       <Radio className="w-6 h-6" />
                     </div>
-                    <span className="text-[11px] font-bold text-slate-300">Radio</span>
+                    <span className="text-[10px] font-bold text-slate-300 text-center">Radio Wire</span>
                   </button>
                 </div>
               </div>
 
-              {/* Bottom Dock */}
-              <div className="bg-slate-800/60 backdrop-blur-md rounded-3xl p-2.5 flex items-center justify-around border border-slate-700/50">
+              {/* Bottom Quick-Action Dock */}
+              <div className="bg-slate-800/60 backdrop-blur-md rounded-2xl p-2 flex items-center justify-around border border-slate-700/50">
                 <button
                   onClick={() => {
                     soundFx.playCameraSnap();
-                    onAlert('📸 Snapshot taken! Saved to your Prosperity Gallery.');
+                    onAlert('📸 Financial Snapshot captured & logged to record history.');
                   }}
-                  className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-white hover:bg-slate-600 cursor-pointer"
-                  title="Camera"
+                  className="w-10 h-10 rounded-xl bg-slate-700/80 hover:bg-slate-600 flex items-center justify-center text-white cursor-pointer transition-colors"
+                  title="Capture Snapshot"
                 >
-                  <Camera className="w-5 h-5" />
+                  <Camera className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => {
-                    radioEngine.nextStation();
-                  }}
-                  className="w-10 h-10 rounded-xl bg-pink-600 flex items-center justify-center text-white hover:bg-pink-500 cursor-pointer"
-                  title="Radio Quick-Switch"
+                  onClick={() => radioEngine.nextStation()}
+                  className="w-10 h-10 rounded-xl bg-rose-600/90 hover:bg-rose-500 flex items-center justify-center text-white cursor-pointer transition-colors"
+                  title="Switch Radio Station"
                 >
-                  <Radio className="w-5 h-5" />
+                  <Radio className="w-4 h-4" />
                 </button>
                 <button
                   onClick={onClose}
-                  className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-white hover:bg-slate-600 cursor-pointer"
-                  title="Put Phone Away"
+                  className="w-10 h-10 rounded-xl bg-slate-700/80 hover:bg-slate-600 flex items-center justify-center text-white cursor-pointer transition-colors"
+                  title="Close Terminal"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* APP 2: FINTWIST SOCIAL NETWORK */}
-          {currentApp === 'FINTWIST' && (
-            <div className="flex-1 flex flex-col justify-between">
-              <div className="space-y-3 overflow-y-auto max-h-[460px] pr-1 scrollbar-none">
-                {/* Tweet Composer */}
-                <div className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700/80">
-                  <textarea
-                    value={tweetDraft}
-                    onChange={(e) => setTweetDraft(e.target.value)}
-                    placeholder="Post a market hot-take..."
-                    rows={2}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white focus:outline-none focus:border-sky-500 resize-none"
-                  />
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-[10px] text-slate-400">Public Feed</span>
-                    <button
-                      onClick={handlePostTweet}
-                      disabled={!tweetDraft.trim()}
-                      className="px-3 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 disabled:opacity-40 text-slate-950 font-bold text-xs flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>Post</span>
-                      <Send className="w-3 h-3" />
-                    </button>
+          {/* -------------------------------------------------- */}
+          {/* APP 2: MARKETPULSE (INSTITUTIONAL MACRO WIRE)      */}
+          {/* -------------------------------------------------- */}
+          {currentApp === 'MARKETPULSE' && (
+            <div className="space-y-3 overflow-y-auto pr-0.5 scrollbar-none">
+              {/* Macro Indicators Matrix */}
+              <div className="bg-slate-800/80 rounded-2xl p-3 border border-slate-700/80 space-y-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">US Treasury Yield Curve</span>
+                  <span className="text-[9px] px-2 py-0.5 rounded bg-red-950/80 border border-red-500/40 text-red-300 font-bold">
+                    INVERTED (-40 bps)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5 text-center font-mono">
+                  <div className="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
+                    <span className="text-[9px] text-slate-400 block font-sans">3-Month</span>
+                    <strong className="text-xs text-amber-400">5.25%</strong>
+                  </div>
+                  <div className="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
+                    <span className="text-[9px] text-slate-400 block font-sans">2-Year</span>
+                    <strong className="text-xs text-amber-400">4.65%</strong>
+                  </div>
+                  <div className="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
+                    <span className="text-[9px] text-slate-400 block font-sans">10-Year</span>
+                    <strong className="text-xs text-emerald-400">4.25%</strong>
+                  </div>
+                  <div className="bg-slate-900/80 p-1.5 rounded-lg border border-slate-800">
+                    <span className="text-[9px] text-slate-400 block font-sans">30-Year</span>
+                    <strong className="text-xs text-emerald-400">4.40%</strong>
                   </div>
                 </div>
 
-                {/* Feed Items */}
-                {socialFeed.map((post) => (
-                  <div key={post.id} className="bg-slate-800/40 rounded-2xl p-3 border border-slate-700/50 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{post.avatar}</span>
+                <p className="text-[10px] text-slate-400 leading-relaxed bg-slate-900/50 p-2 rounded-lg border border-slate-800/60">
+                  <strong className="text-amber-300">CFA Analysis:</strong> An inverted yield curve (10Y minus 2Y &lt; 0) historically signals economic deceleration. Maintain liquid emergency cash and dollar-cost average into diversified broad equities.
+                </p>
+              </div>
+
+              {/* Economic Radar */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60">
+                  <span className="text-[9px] text-slate-400 uppercase font-bold block">Core CPI Inflation</span>
+                  <div className="text-base font-black text-rose-400 font-mono mt-0.5">
+                    {(state.inflationRate * 100).toFixed(1)}%
+                  </div>
+                  <span className="text-[9px] text-slate-400">Target: 2.0% annual</span>
+                </div>
+                <div className="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60">
+                  <span className="text-[9px] text-slate-400 uppercase font-bold block">Fed Policy Rate</span>
+                  <div className="text-base font-black text-cyan-400 font-mono mt-0.5">
+                    {(state.interestRate * 100).toFixed(2)}%
+                  </div>
+                  <span className="text-[9px] text-slate-400">Higher for longer</span>
+                </div>
+              </div>
+
+              {/* Institutional Breaking News Feed */}
+              <div className="space-y-2">
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                  Institutional Market Wire
+                </div>
+
+                {[
+                  {
+                    source: 'FEDERAL RESERVE BULLETIN',
+                    tag: 'POLICY',
+                    time: '12m ago',
+                    headline: 'FOMC votes to maintain benchmark interest rates at 5.25%-5.50% range.',
+                    detail: 'Chairman emphasizes data dependency: "We will not rush easing until disinflation toward 2% is demonstrably sustainable."'
+                  },
+                  {
+                    source: 'IRS REVENUE BULLETIN',
+                    tag: 'TAX CODE',
+                    time: '45m ago',
+                    headline: 'Annual Elective Deferral Limits Increased for Tax-Advantaged Accounts.',
+                    detail: 'Traditional & Roth 401(k) maximum ceiling adjusted to $23,000. IRA contribution limit raised to $7,000.'
+                  },
+                  {
+                    source: 'TREASURY AUCTION DESK',
+                    tag: 'FIXED INCOME',
+                    time: '2h ago',
+                    headline: 'Strong Indirect Demand at 10-Year Benchmark Treasury Auction.',
+                    detail: 'High bid-to-cover ratio of 2.52x signals robust institutional pension appetite for long-duration risk-free paper.'
+                  },
+                ].map((item, idx) => (
+                  <div key={idx} className="bg-slate-800/40 rounded-xl p-2.5 border border-slate-700/60 space-y-1">
+                    <div className="flex items-center justify-between text-[9px]">
+                      <span className="font-extrabold text-cyan-400 tracking-wider">{item.source}</span>
+                      <span className="text-slate-500 font-mono">{item.time}</span>
+                    </div>
+                    <div className="text-xs font-bold text-slate-200 leading-snug">{item.headline}</div>
+                    <div className="text-[10px] text-slate-400 leading-relaxed">{item.detail}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* -------------------------------------------------- */}
+          {/* APP 3: ALPHATRADE (ASSET LOCATION & PORTFOLIO)     */}
+          {/* -------------------------------------------------- */}
+          {currentApp === 'ALPHATRADE' && (
+            <div className="space-y-3 overflow-y-auto pr-0.5 scrollbar-none">
+              {/* Asset Location Hierarchy Info */}
+              <div className="bg-gradient-to-r from-emerald-950/40 to-teal-950/40 border border-emerald-500/40 rounded-2xl p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+                    CFP® Asset Location Strategy
+                  </span>
+                  <span className="text-xs font-mono font-black text-white">
+                    ${portfolioVal.toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-300 leading-relaxed">
+                  Hold high-turnover equities in <strong>Roth (Tax-Free)</strong>, bonds and REITs in <strong>Tax-Deferred</strong>, and broad index funds in <strong>Taxable</strong> for long-term capital gains rates!
+                </p>
+              </div>
+
+              {/* Trade Amount Selector */}
+              <div className="bg-slate-800/60 rounded-xl p-2.5 border border-slate-700/60 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-300">Order Size:</span>
+                <div className="flex items-center gap-1">
+                  {[50, 100, 250, 500].map((amt) => (
+                    <button
+                      key={amt}
+                      onClick={() => setTradeAmount(amt)}
+                      className={`px-2 py-1 rounded-lg text-xs font-mono font-bold cursor-pointer transition-all ${
+                        tradeAmount === amt
+                          ? 'bg-emerald-500 text-slate-950'
+                          : 'bg-slate-700/60 text-slate-300 hover:bg-slate-600'
+                      }`}
+                    >
+                      ${amt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Asset Catalog with Location Badges */}
+              <div className="space-y-2">
+                {state.assets.map((asset) => {
+                  const pos = state.portfolio.find((p) => p.assetId === asset.id);
+                  const sharesOwned = pos ? pos.shares.toFixed(2) : '0';
+                  const holdingValue = pos ? Math.round(pos.shares * asset.currentPrice) : 0;
+
+                  return (
+                    <div 
+                      key={asset.id} 
+                      className="bg-slate-800/50 rounded-2xl p-3 border border-slate-700/70 space-y-2"
+                    >
+                      <div className="flex items-start justify-between">
                         <div>
-                          <div className="text-xs font-bold text-white">{post.author}</div>
-                          <div className="text-[10px] text-slate-400">{post.handle}</div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-black text-xs text-white">{asset.symbol}</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-mono">
+                              {asset.category}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-300 font-medium truncate max-w-[170px]">
+                            {asset.name}
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-xs font-mono font-bold text-emerald-400">
+                            ${asset.currentPrice.toLocaleString()}
+                          </div>
+                          <div className="text-[9px] text-slate-400 font-mono">
+                            Yield: {((asset.dividendYield || 0) * 100).toFixed(1)}%
+                          </div>
                         </div>
                       </div>
-                      <span className="text-[10px] text-slate-500">{post.time}</span>
-                    </div>
-                    <p className="text-xs text-slate-200 leading-relaxed">{post.content}</p>
-                    <div className="flex items-center gap-4 text-[11px] text-slate-400 pt-1">
-                      <span className="flex items-center gap-1 hover:text-red-400 cursor-pointer">
-                        <Heart className="w-3 h-3" /> {post.likes}
-                      </span>
-                      <span className="flex items-center gap-1 hover:text-emerald-400 cursor-pointer">
-                        <Repeat className="w-3 h-3" /> {post.retweets}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
-          {/* APP 3: ROBINTRADE MOBILE */}
-          {currentApp === 'ROBINTRADE' && (
-            <div className="space-y-3">
-              <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-2xl p-3">
-                <div className="text-[10px] text-emerald-400 font-bold uppercase">Liquid Portfolio</div>
-                <div className="text-xl font-black text-white font-mono">
-                  ${getPortfolioValue(state).toLocaleString()}
-                </div>
-                <div className="text-[10px] text-slate-400 mt-1">Cash Available: ${Math.round(state.cash).toLocaleString()}</div>
-              </div>
+                      {/* Holdings & Pedagogical Asset Location Badge */}
+                      <div className="flex items-center justify-between text-[10px] bg-slate-900/60 p-1.5 rounded-lg border border-slate-800/80">
+                        <div>
+                          <span className="text-slate-400">Holding: </span>
+                          <strong className="text-white font-mono">{sharesOwned} shs</strong>
+                          {holdingValue > 0 && (
+                            <span className="text-cyan-400 ml-1 font-mono">(${holdingValue.toLocaleString()})</span>
+                          )}
+                        </div>
 
-              {/* Equities List */}
-              <div className="space-y-2">
-                {[
-                  { symbol: 'SPY 500', name: 'S&P Market Index', price: 540, change: '+1.4%' },
-                  { symbol: 'NVDA-TECH', name: 'AI Silicon Giant', price: 920, change: '+4.8%' },
-                  { symbol: 'TLT-BOND', name: '20Y Treasury Yield', price: 110, change: '-0.6%' },
-                  { symbol: 'BTC-CRYPTO', name: 'Digital Reserve', price: 68000, change: '+6.2%' },
-                ].map((item) => (
-                  <div key={item.symbol} className="bg-slate-800/50 rounded-xl p-2.5 border border-slate-700/60 flex items-center justify-between">
-                    <div>
-                      <div className="font-extrabold text-xs text-white">{item.symbol}</div>
-                      <div className="text-[10px] text-slate-400">{item.name}</div>
-                      <div className="text-xs font-mono font-bold text-emerald-400 mt-0.5">
-                        ${item.price.toLocaleString()} <span className="text-[10px] text-emerald-300">({item.change})</span>
+                        <div className="text-[9px] font-bold text-amber-300">
+                          {asset.assetLocationRecommendation === 'TAXABLE' && '📍 Best: Taxable Brokerage'}
+                          {asset.assetLocationRecommendation === 'TAX_DEFERRED' && '📍 Best: Traditional 401(k)'}
+                          {asset.assetLocationRecommendation === 'TAX_FREE' && '📍 Best: Roth IRA / HSA'}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="grid grid-cols-2 gap-2 pt-0.5">
+                        <button
+                          onClick={() => handleBuy(asset.id, tradeAmount)}
+                          className="py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs cursor-pointer transition-colors flex items-center justify-center gap-1"
+                        >
+                          Buy ${tradeAmount}
+                        </button>
+                        <button
+                          onClick={() => handleSell(asset.id)}
+                          disabled={!pos || pos.shares <= 0}
+                          className="py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-white font-bold text-xs cursor-pointer transition-colors flex items-center justify-center gap-1"
+                        >
+                          Sell 25%
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => handleQuickTrade(item.symbol, item.price, true)}
-                        className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[11px] rounded-lg cursor-pointer"
-                      >
-                        Buy
-                      </button>
-                      <button
-                        onClick={() => handleQuickTrade(item.symbol, item.price, false)}
-                        className="px-2.5 py-1.5 bg-rose-500 hover:bg-rose-400 text-white font-extrabold text-[11px] rounded-lg cursor-pointer"
-                      >
-                        Sell
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* APP 4: LUXMANSIONS REAL ESTATE */}
-          {currentApp === 'LUXMANSIONS' && (
-            <div className="space-y-3">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Ultra-Luxury Portfolio
+          {/* -------------------------------------------------- */}
+          {/* APP 4: REALESTATE COMPASS & UNDERWRITING           */}
+          {/* -------------------------------------------------- */}
+          {currentApp === 'REALESTATE' && (
+            <div className="space-y-3 overflow-y-auto pr-0.5 scrollbar-none">
+              {/* Institutional Real Estate Underwriting Metrics */}
+              <div className="bg-amber-950/40 border border-amber-500/40 rounded-2xl p-3 space-y-1">
+                <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">
+                  Commercial & Residential Underwriting
+                </span>
+                <p className="text-[10px] text-slate-300 leading-relaxed">
+                  Evaluate properties using <strong>Cap Rates (NOI / Cost)</strong> and <strong>Cash-on-Cash Return</strong>. Real estate allows non-cash tax depreciation write-offs!
+                </p>
               </div>
-              {[
-                {
-                  name: 'Ocean Boardwalk Penthouse',
-                  price: 1250000,
-                  cashflow: 6500,
-                  loc: 'Waterfront District',
-                  icon: '🏖️',
-                },
-                {
-                  name: 'Financial Core Sky-Mansion',
-                  price: 3500000,
-                  cashflow: 18000,
-                  loc: 'Wall Street Tower',
-                  icon: '🏙️',
-                },
-                {
-                  name: 'Suburban Gated Villa',
-                  price: 450000,
-                  cashflow: 2400,
-                  loc: 'Residential Park',
-                  icon: '🏡',
-                },
-              ].map((mansion) => (
-                <div key={mansion.name} className="bg-slate-800/60 rounded-2xl p-3 border border-slate-700 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xl">{mansion.icon}</span>
-                    <span className="text-xs font-bold text-amber-400 font-mono">
-                      ${mansion.price.toLocaleString()}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="text-xs font-extrabold text-white">{mansion.name}</div>
-                    <div className="text-[10px] text-slate-400">{mansion.loc}</div>
-                    <div className="text-[11px] font-mono text-emerald-400 font-bold mt-1">
-                      +${mansion.cashflow.toLocaleString()}/mo Net Rental Yield
+
+              {/* Property Opportunities */}
+              <div className="space-y-2.5">
+                {[
+                  {
+                    name: 'Suburban Turnkey Duplex',
+                    price: 320000,
+                    rent: 2400,
+                    capRate: 7.8,
+                    cashOnCash: 9.4,
+                    depreciation: 9200,
+                    district: 'Oak Grove Residential',
+                    icon: '🏡',
+                  },
+                  {
+                    name: 'Ocean Boardwalk Luxury Condo',
+                    price: 680000,
+                    rent: 4800,
+                    capRate: 6.9,
+                    cashOnCash: 8.1,
+                    depreciation: 18500,
+                    district: 'Oceanfront Pier',
+                    icon: '🏖️',
+                  },
+                  {
+                    name: 'The Summit FIRE Penthouse',
+                    price: 1200000,
+                    rent: 8500,
+                    capRate: 7.2,
+                    cashOnCash: 8.6,
+                    depreciation: 34000,
+                    district: 'Billionaires Row',
+                    icon: '👑',
+                  },
+                ].map((prop) => {
+                  const downPayment = prop.price * 0.20;
+                  const alreadyOwned = state.sideHustles.some((sh) => sh.title === prop.name);
+
+                  return (
+                    <div 
+                      key={prop.name}
+                      className="bg-slate-800/60 rounded-2xl p-3 border border-slate-700/80 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">{prop.icon}</span>
+                          <div>
+                            <div className="text-xs font-black text-white">{prop.name}</div>
+                            <div className="text-[9px] text-slate-400">{prop.district}</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs font-mono font-extrabold text-amber-400">
+                            ${prop.price.toLocaleString()}
+                          </div>
+                          <span className="text-[9px] text-slate-400 font-mono">
+                            Down: ${(downPayment / 1000).toFixed(0)}k
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Underwriting KPIs */}
+                      <div className="grid grid-cols-3 gap-1 text-center bg-slate-900/60 p-2 rounded-xl border border-slate-800 text-[10px] font-mono">
+                        <div>
+                          <span className="text-[9px] text-slate-400 block font-sans">Cap Rate</span>
+                          <strong className="text-emerald-400">{prop.capRate}%</strong>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-400 block font-sans">CoC Yield</span>
+                          <strong className="text-cyan-400">{prop.cashOnCash}%</strong>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-400 block font-sans">Tax Deprec.</span>
+                          <strong className="text-amber-400">${prop.depreciation}/yr</strong>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] pt-1">
+                        <span className="text-slate-300 font-medium">Net Monthly Rent:</span>
+                        <strong className="text-emerald-400 font-mono">+${prop.rent.toLocaleString()}/mo</strong>
+                      </div>
+
+                      <button
+                        onClick={() => handleAcquireProperty(prop.name, prop.price, prop.rent)}
+                        disabled={alreadyOwned || state.cash < downPayment}
+                        className={`w-full py-2 rounded-xl font-black text-xs cursor-pointer transition-all ${
+                          alreadyOwned
+                            ? 'bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 cursor-default'
+                            : state.cash >= downPayment
+                            ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md'
+                            : 'bg-slate-700/60 text-slate-400 opacity-60'
+                        }`}
+                      >
+                        {alreadyOwned 
+                          ? '✓ Acquired in Portfolio' 
+                          : state.cash >= downPayment 
+                          ? `Acquire with $${downPayment.toLocaleString()} Down` 
+                          : `Need $${(downPayment - state.cash).toLocaleString()} more down payment`}
+                      </button>
                     </div>
-                  </div>
-                  <button
-                    onClick={() => handleBuyMansion(mansion.name, mansion.price, mansion.cashflow)}
-                    className="w-full py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs cursor-pointer"
-                  >
-                    Buy Property
-                  </button>
-                </div>
-              ))}
+                  );
+                })}
+              </div>
             </div>
           )}
 
-          {/* APP 5: BANK OF PROSPERITY */}
-          {currentApp === 'BANK' && (
-            <div className="space-y-3">
-              <div className="bg-indigo-950/50 border border-indigo-500/40 rounded-2xl p-3.5 space-y-2">
+          {/* -------------------------------------------------- */}
+          {/* APP 5: TREASURY VAULT & LIQUIDITY RUNWAY           */}
+          {/* -------------------------------------------------- */}
+          {currentApp === 'TREASURY' && (
+            <div className="space-y-3 overflow-y-auto pr-0.5 scrollbar-none">
+              {/* Account Balances Card */}
+              <div className="bg-indigo-950/50 border border-indigo-500/40 rounded-2xl p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-indigo-300 font-bold">Checking Account</span>
-                  <span className="text-xs font-mono font-black text-white">
+                  <span className="text-xs text-indigo-300 font-bold">Liquid Checking Account</span>
+                  <span className="text-sm font-mono font-black text-white">
                     ${Math.round(state.cash).toLocaleString()}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-amber-300 font-bold">4.5% High-Yield Vault</span>
-                  <span className="text-xs font-mono font-black text-white">
+
+                <div className="flex items-center justify-between pt-2 border-t border-indigo-800/40">
+                  <div>
+                    <span className="text-xs text-amber-300 font-bold block">4.5% High-Yield Vault</span>
+                    <span className="text-[9px] text-slate-400">Compounded monthly (risk-free)</span>
+                  </div>
+                  <span className="text-sm font-mono font-black text-emerald-400">
                     ${Math.round(state.emergencyFund).toLocaleString()}
                   </span>
                 </div>
-                <div className="pt-2 border-t border-indigo-800/60 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400">FICO Credit Score</span>
-                  <span className="text-sm font-extrabold text-emerald-400 font-mono">785 (Excellent)</span>
+              </div>
+
+              {/* Emergency Fund Runway Meter */}
+              <div className="bg-slate-800/60 rounded-2xl p-3 border border-slate-700/70 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[10px] font-extrabold uppercase text-slate-400">
+                    Emergency Liquidity Runway
+                  </span>
+                  <span className={`text-xs font-mono font-black ${
+                    Number(emergencyMonths) >= 6 
+                      ? 'text-emerald-400' 
+                      : Number(emergencyMonths) >= 3 
+                      ? 'text-amber-400' 
+                      : 'text-rose-400'
+                  }`}>
+                    {emergencyMonths} Months
+                  </span>
+                </div>
+
+                {/* Visual Progress Meter */}
+                <div className="h-2 w-full bg-slate-900 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      Number(emergencyMonths) >= 6 
+                        ? 'bg-emerald-500' 
+                        : Number(emergencyMonths) >= 3 
+                        ? 'bg-amber-500' 
+                        : 'bg-rose-500'
+                    }`}
+                    style={{ width: `${Math.min(100, (Number(emergencyMonths) / 6) * 100)}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[9px] text-slate-400">
+                  <span>Target: 3 - 6 Months</span>
+                  <span>Living Burn: ${monthlyExpenses.toLocaleString()}/mo</span>
                 </div>
               </div>
 
-              {/* Instant Vault Transfer Buttons */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    if (state.cash >= 500) {
-                      state.cash -= 500;
-                      state.emergencyFund += 500;
-                      soundFx.playCoin();
-                      onUpdateState({ ...state });
-                      onAlert('Vault Deposit: Transferred $500 to 4.5% High-Yield Vault!');
-                    } else {
-                      onAlert('Insufficient cash.');
-                    }
-                  }}
-                  className="py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <ArrowDownLeft className="w-3.5 h-3.5" />
-                  Deposit $500
-                </button>
+              {/* Instant Transfer Controls */}
+              <div className="bg-slate-800/50 rounded-2xl p-3 border border-slate-700/60 space-y-2">
+                <span className="text-[10px] font-bold text-slate-300 uppercase block">
+                  Vault Transfer Operations
+                </span>
 
-                <button
-                  onClick={() => {
-                    if (state.emergencyFund >= 500) {
-                      state.emergencyFund -= 500;
-                      state.cash += 500;
-                      soundFx.playCoin();
-                      onUpdateState({ ...state });
-                      onAlert('Vault Withdrawal: Transferred $500 to Checking!');
-                    } else {
-                      onAlert('Insufficient vault funds.');
-                    }
-                  }}
-                  className="py-2 px-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                  Withdraw $500
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      if (state.cash >= 500) {
+                        state.cash -= 500;
+                        state.emergencyFund += 500;
+                        soundFx.playCoin();
+                        onUpdateState({ ...state });
+                        onAlert('Vault Deposit: Transferred $500 to 4.5% High-Yield Vault!');
+                      } else {
+                        onAlert('Insufficient checking cash.');
+                      }
+                    }}
+                    className="py-2.5 px-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <ArrowDownLeft className="w-3.5 h-3.5" />
+                    Deposit $500
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (state.emergencyFund >= 500) {
+                        state.emergencyFund -= 500;
+                        state.cash += 500;
+                        soundFx.playCoin();
+                        onUpdateState({ ...state });
+                        onAlert('Vault Withdrawal: Transferred $500 to Checking!');
+                      } else {
+                        onAlert('Insufficient vault balance.');
+                      }
+                    }}
+                    className="py-2.5 px-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                    Withdraw $500
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* APP 6: LEGAL FIXER & SEC BAIL BONDS */}
-          {currentApp === 'LEGAL' && (
-            <div className="space-y-3">
-              <div className="bg-red-950/50 border border-red-500/40 rounded-2xl p-3.5 text-center space-y-2">
-                <div className="text-xs font-bold text-red-300 uppercase">Regulatory Wanted Level</div>
-                <div className="text-3xl tracking-widest text-amber-400 font-extrabold">
-                  {stars > 0 ? '⭐'.repeat(stars) : 'CLEAN'}
+          {/* -------------------------------------------------- */}
+          {/* APP 6: CFP® / CFA® WEALTH & TAX ADVISORY          */}
+          {/* -------------------------------------------------- */}
+          {currentApp === 'ADVISORY' && (
+            <div className="space-y-3 overflow-y-auto pr-0.5 scrollbar-none">
+              {/* 4% Safe Withdrawal Rule Calculator */}
+              <div className="bg-slate-800/70 rounded-2xl p-3 border border-slate-700/80 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[10px] font-black uppercase text-violet-400 tracking-wider">
+                    4% Safe Withdrawal Rule (FIRE)
+                  </span>
+                  <Award className="w-4 h-4 text-violet-400" />
                 </div>
-                <div className="text-[11px] text-slate-300">
-                  {stars === 0
-                    ? 'No active investigations or enforcement warrants.'
-                    : `Active Investigation: ${wantedLevelEngine.getInfraction() || 'Federal Inquiry'}`}
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-slate-300">
+                    <span>Desired Monthly Retirement Spend:</span>
+                    <strong className="text-white font-mono">${targetRetirementSpending.toLocaleString()}</strong>
+                  </div>
+                  <input
+                    type="range"
+                    min={2000}
+                    max={20000}
+                    step={500}
+                    value={targetRetirementSpending}
+                    onChange={(e) => setTargetRetirementSpending(Number(e.target.value))}
+                    className="w-full accent-violet-500 cursor-pointer"
+                  />
+                </div>
+
+                <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Required Capital Nest Egg</span>
+                    <strong className="text-sm font-black text-emerald-400 font-mono">
+                      ${Math.round(fireTarget).toLocaleString()}
+                    </strong>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-400 block">Current Progress</span>
+                    <strong className="text-xs font-mono text-cyan-400">
+                      {fireProgressPct}%
+                    </strong>
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-slate-800/60 rounded-2xl p-3 border border-slate-700 space-y-2 text-center">
-                <div className="text-xs font-extrabold text-white">Call Defense Attorney Saul</div>
-                <p className="text-[11px] text-slate-400">
-                  Negotiate a confidential settlement with the SEC & IRS to completely clear your Wanted Stars and unfreeze all accounts.
+              {/* Standard vs Itemized Tax Optimization */}
+              <div className="bg-slate-800/60 rounded-2xl p-3 border border-slate-700/70 space-y-2">
+                <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider block">
+                  Tax Deduction Optimization
+                </span>
+                <p className="text-[10px] text-slate-300 leading-relaxed">
+                  2026 Standard Deduction is <strong>$14,600</strong> (Single) / <strong>$29,200</strong> (Married). Itemize only if mortgage interest + state taxes (SALT $10k cap) + charitable gifts exceed standard deduction.
                 </p>
-                <button
-                  onClick={handleLegalSettlement}
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs shadow-lg cursor-pointer"
-                >
-                  Pay Settlement & Drop Charges
-                </button>
+                <div className="bg-slate-900/60 p-2 rounded-xl border border-slate-800 text-[10px] flex items-center justify-between">
+                  <span className="text-slate-400">Recommended Selection:</span>
+                  <strong className="text-emerald-400 font-mono">STANDARD DEDUCTION ($14,600)</strong>
+                </div>
+              </div>
+
+              {/* Roth Conversion Ladder Analyzer */}
+              <div className="bg-slate-800/60 rounded-2xl p-3 border border-slate-700/70 space-y-2">
+                <span className="text-[10px] font-black uppercase text-cyan-400 tracking-wider block">
+                  Roth Conversion Ladder Strategy
+                </span>
+                <p className="text-[10px] text-slate-300 leading-relaxed">
+                  Convert pre-tax Traditional 401(k) funds to Roth during low-income career pivot years to lock in historically low marginal tax brackets. Converted principal can be withdrawn penalty-free after 5 years!
+                </p>
               </div>
             </div>
           )}
 
-          {/* APP 7: RADIO PLAYER */}
+          {/* -------------------------------------------------- */}
+          {/* APP 7: RADIO BROADCAST PLAYER                      */}
+          {/* -------------------------------------------------- */}
           {currentApp === 'RADIO' && (
-            <div className="space-y-3">
+            <div className="space-y-3 overflow-y-auto pr-0.5 scrollbar-none">
               <div className="bg-slate-800/80 rounded-2xl p-4 border border-slate-700 text-center space-y-3">
-                <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-3xl shadow-xl">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-600 flex items-center justify-center text-3xl shadow-xl shadow-rose-500/20">
                   📻
                 </div>
                 <div>
                   <div className="font-black text-sm text-white">{currentStation.name}</div>
                   <div className="text-xs text-pink-400 font-mono">{currentStation.frequency}</div>
-                  <div className="text-[11px] text-slate-400 mt-1">{currentStation.currentTrack}</div>
+                  <div className="text-[10px] text-slate-400 mt-1">{currentStation.currentTrack}</div>
                 </div>
 
                 {/* Stations List */}
@@ -644,10 +905,10 @@ export const FinPhoneModal: React.FC<FinPhoneModalProps> = ({
                     <button
                       key={station.id}
                       onClick={() => radioEngine.setStation(station.id)}
-                      className={`w-full p-2 rounded-xl text-left text-xs font-bold flex items-center justify-between cursor-pointer ${
+                      className={`w-full p-2.5 rounded-xl text-left text-xs font-bold flex items-center justify-between cursor-pointer transition-colors ${
                         currentStation.id === station.id
-                          ? 'bg-pink-600/30 border border-pink-500/50 text-white'
-                          : 'bg-slate-900/60 text-slate-400 hover:text-white'
+                          ? 'bg-rose-600/30 border border-rose-500/50 text-white'
+                          : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-900'
                       }`}
                     >
                       <span>{station.name}</span>
@@ -661,7 +922,7 @@ export const FinPhoneModal: React.FC<FinPhoneModalProps> = ({
 
         </div>
 
-        {/* Home Bar Indicator (iPhone style) */}
+        {/* Home Bar Indicator */}
         <div 
           onClick={() => {
             soundFx.playClick();

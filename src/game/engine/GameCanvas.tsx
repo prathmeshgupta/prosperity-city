@@ -93,8 +93,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       name: state.character.name,
       avatarEmoji: state.character.avatar,
       archetypeId: state.character.archetypeId,
+      netWorth: getNetWorth(state),
     }));
-  }, [state.character.name, state.character.avatar, state.character.archetypeId]);
+  }, [state.character.name, state.character.avatar, state.character.archetypeId, state.cash, state.emergencyFund, state.portfolio, state.debts]);
 
   const [npcs, setNpcs] = useState<NPC[]>(INITIAL_NPCS);
   const [collectibles, setCollectibles] = useState<Collectible[]>(INITIAL_COLLECTIBLES);

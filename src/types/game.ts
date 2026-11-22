@@ -227,6 +227,7 @@ export interface GameState {
   progressionSpeed?: ProgressionSpeed;
   lifeStage?: LifeStage;
   lifeFocus?: LifeFocus;
+  taxJurisdiction?: 'METROPOLIS_HUB' | 'SUNBELT_HAVEN' | 'SUBURBAN_PARK';
   energyAllocation?: EnergyAllocation;
   burnout?: number; // 0 - 100
   generationalLegacy?: GenerationalLegacy;

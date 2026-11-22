@@ -37,7 +37,7 @@ export const TaxOfficeInterior: React.FC<TaxOfficeInteriorProps> = ({
   showToast,
 }) => {
   const [activeTab, setActiveTab] = useState<'BRACKETS' | 'HARVESTING' | 'GEOGRAPHY' | 'DEDUCTIONS'>('BRACKETS');
-  const [selectedJurisdiction, setSelectedJurisdiction] = useState<TaxJurisdiction>('METROPOLIS_HUB');
+  const [selectedJurisdiction, setSelectedJurisdiction] = useState<TaxJurisdiction>(state.taxJurisdiction || 'METROPOLIS_HUB');
 
   // Compute live tax breakdown
   const annualSalary = state.character.annualSalary;
@@ -417,7 +417,18 @@ export const TaxOfficeInterior: React.FC<TaxOfficeInteriorProps> = ({
             <button
               onClick={() => {
                 soundFx.playLevelUp();
-                showToast(`Primary residence updated to ${TAX_JURISDICTIONS[selectedJurisdiction].name}!`);
+                const updated = {
+                  ...state,
+                  taxJurisdiction: selectedJurisdiction,
+                  totalXP: state.totalXP + 100,
+                };
+                updated.recentEvents.unshift({
+                  month: state.month,
+                  text: `Relocated tax residency to ${TAX_JURISDICTIONS[selectedJurisdiction].name}! State tax rate is now ${(TAX_JURISDICTIONS[selectedJurisdiction].stateIncomeTaxRate * 100).toFixed(1)}%. (+100 XP)`,
+                  type: 'positive',
+                });
+                onUpdateState(updated);
+                showToast(`Primary residence & tax nexus updated to ${TAX_JURISDICTIONS[selectedJurisdiction].name}! (+100 XP)`);
               }}
               className="px-4 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-extrabold text-xs cursor-pointer shadow-lg shadow-rose-500/20"
             >

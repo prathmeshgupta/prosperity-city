@@ -63,7 +63,8 @@ export function advanceTurn(currentState: GameState): AdvanceTurnResult {
   // 4. CFP Progressive Income Taxes (Federal Marginal Brackets + FICA + State)
   const annualGross = grossIncome * (12 / months);
   const annual401k = employee401k * (12 / months);
-  const taxComp = calculateComprehensiveTaxes(annualGross, 'METROPOLIS_HUB', 'SINGLE', {
+  const jurisdiction = state.taxJurisdiction || 'METROPOLIS_HUB';
+  const taxComp = calculateComprehensiveTaxes(annualGross, jurisdiction, 'SINGLE', {
     traditional401k: annual401k,
     studentLoanInterestPaid: state.debts.some((d) => d.category === 'STUDENT_LOAN') ? 2000 : 0,
   });

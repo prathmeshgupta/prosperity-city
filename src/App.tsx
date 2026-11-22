@@ -193,6 +193,8 @@ export function App() {
       {/* Onboarding Cutscene when starting new game */}
       {showCutscene && (
         <OnboardingCutscene
+          state={state}
+          onUpdateState={handleUpdateState}
           playerName={state.character.name}
           avatarEmoji={state.character.avatar}
           careerTitle={state.character.careerTitle}

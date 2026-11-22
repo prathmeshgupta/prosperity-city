@@ -1,3 +1,5 @@
+export type WealthTier = 'ACCUMULATION' | 'ASCENT' | 'PRESERVATION' | 'LEGACY';
+
 export interface AvatarVisualSpec {
   skinTone: string;
   hairColor: string;
@@ -8,13 +10,18 @@ export interface AvatarVisualSpec {
   hatType?: 'GRADUATION' | 'BERET' | 'HARDHAT' | 'HEADBAND' | 'NONE';
   hatColor?: string;
   hasGlasses?: boolean;
-  accessory?: 'STETHOSCOPE' | 'TIE' | 'TOOL_BELT' | 'SATCHEL' | 'LANYARD' | 'NONE';
+  accessory?: 'STETHOSCOPE' | 'TIE' | 'TOOL_BELT' | 'SATCHEL' | 'LANYARD' | 'WATCH' | 'NONE';
+  wealthTier?: WealthTier;
 }
 
 /**
  * Maps avatar emojis and archetypes to high-fidelity visual character sprites.
  */
-export function getAvatarVisualSpec(avatarEmoji: string, archetypeId?: string): AvatarVisualSpec {
+export function getAvatarVisualSpec(avatarEmoji: string, archetypeId?: string, netWorth: number = 0): AvatarVisualSpec {
+  const wealthTier: WealthTier = 
+    netWorth >= 2000000 ? 'LEGACY' :
+    netWorth >= 500000 ? 'PRESERVATION' :
+    netWorth >= 100000 ? 'ASCENT' : 'ACCUMULATION';
   switch (archetypeId) {
     case 'archetype_fresh_grad':
     case '🎓':
