@@ -5,7 +5,8 @@ import { STREET_PROPS, StreetProp } from '../world/streetProps';
 import { INITIAL_NPCS, NPC } from '../entities/NPC';
 import { INITIAL_COLLECTIBLES, Collectible } from '../entities/Collectible';
 import { renderWorldMap } from './tilesetRenderer';
-import { renderEntities, PlayerEntity } from './entityRenderer';
+import { PlayerEntity } from './entityRenderer';
+import { collisionEngine } from './collisionEngine';
 import { RPGBuildingInterior } from '../ui/RPGBuildingInterior';
 import { DialogueBox } from '../ui/DialogueBox';
 import { WorldAtmosphere } from './timeAndWeather';
@@ -374,7 +375,51 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     };
   }, [nearbyBuilding, nearbyNpc, nearbyStreetProp, nearbyVehicle, enteredBuilding, talkingNpc, isNearFountain, showInventory, showCampaignModal, showFreedomBellModal, showLifeFocusModal, showLegacyModal, activeMinigame, showPhone]);
 
-  // Main 60 FPS Game Loop
+  // Camera smooth tracking ref
+  const cameraRef = useRef<{ x: number; y: number }>({
+    x: 46 * TILE_SIZE,
+    y: 28 * TILE_SIZE,
+  });
+
+  // Cached refs for proximity & transient HUD states to prevent 60 FPS re-render death spiral
+  const nearbyBuildingRef = useRef<BuildingEntrance | null>(null);
+  const nearbyNpcRef = useRef<NPC | null>(null);
+  const nearbyVehicleRef = useRef<Vehicle | null>(null);
+  const isNearFountainRef = useRef<boolean>(false);
+  const nearbyPropRef = useRef<StreetProp | null>(null);
+  const wantedStarsRef = useRef<number>(wantedLevelEngine.getStars());
+  const lastMphRef = useRef<number>(0);
+
+  // Synchronized refs for modals and game states inside the continuous RAF loop
+  const stateRef = useRef<GameState>(state);
+  stateRef.current = state;
+  const npcsRef = useRef<NPC[]>(npcs);
+  npcsRef.current = npcs;
+  const collectiblesRef = useRef<Collectible[]>(collectibles);
+  collectiblesRef.current = collectibles;
+  const targetBuildingRef = useRef<BuildingEntrance | null>(targetBuilding);
+  targetBuildingRef.current = targetBuilding;
+
+  const enteredBuildingRef = useRef(enteredBuilding);
+  enteredBuildingRef.current = enteredBuilding;
+  const talkingNpcRef = useRef(talkingNpc);
+  talkingNpcRef.current = talkingNpc;
+  const activeMinigameRef = useRef(activeMinigame);
+  activeMinigameRef.current = activeMinigame;
+  const showInventoryRef = useRef(showInventory);
+  showInventoryRef.current = showInventory;
+  const showCampaignModalRef = useRef(showCampaignModal);
+  showCampaignModalRef.current = showCampaignModal;
+  const showFreedomBellModalRef = useRef(showFreedomBellModal);
+  showFreedomBellModalRef.current = showFreedomBellModal;
+  const showLifeFocusModalRef = useRef(showLifeFocusModal);
+  showLifeFocusModalRef.current = showLifeFocusModal;
+  const showLegacyModalRef = useRef(showLegacyModal);
+  showLegacyModalRef.current = showLegacyModal;
+  const showPhoneRef = useRef(showPhone);
+  showPhoneRef.current = showPhone;
+
+  // Main 60 FPS Continuous Game Loop
   useEffect(() => {
     let animationId: number;
     const canvas = canvasRef.current;
@@ -395,11 +440,24 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       // Update Living Pedestrian Crowd & Regulatory Wanted Level
       pedestrianEngine.update(dt);
       wantedLevelEngine.update(dt);
-      setWantedStars(wantedLevelEngine.getStars());
+      const curStars = wantedLevelEngine.getStars();
+      if (curStars !== wantedStarsRef.current) {
+        wantedStarsRef.current = curStars;
+        setWantedStars(curStars);
+      }
 
       // Only move if not inside a modal
-      if (!enteredBuilding && !talkingNpc && !activeMinigame && !showInventory && !showCampaignModal && !showFreedomBellModal && !showLifeFocusModal && !showLegacyModal && !showPhone) {
-        
+      if (
+        !enteredBuildingRef.current &&
+        !talkingNpcRef.current &&
+        !activeMinigameRef.current &&
+        !showInventoryRef.current &&
+        !showCampaignModalRef.current &&
+        !showFreedomBellModalRef.current &&
+        !showLifeFocusModalRef.current &&
+        !showLegacyModalRef.current &&
+        !showPhoneRef.current
+      ) {
         // 1. VEHICLE DRIVING PHYSICS (GTA 6 Driving Mode!)
         if (vehicleEngine.playerVehicle) {
           vehicleEngine.update(dt, keysPressed.current, (alertX, alertY) => {
@@ -409,7 +467,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           player.x = v.x;
           player.y = v.y;
           player.isMoving = Math.abs(v.speed) > 10;
-          setVehicleSpeedMPH(Math.round(Math.abs(v.speed) / 3.8));
+          const curMph = Math.round(Math.abs(v.speed) / 3.8);
+          if (Math.abs(curMph - lastMphRef.current) >= 2) {
+            lastMphRef.current = curMph;
+            setVehicleSpeedMPH(curMph);
+          }
 
           // Sidewalk reckless driving detection
           const tileY = Math.floor(v.y / TILE_SIZE);
@@ -418,11 +480,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             wantedLevelEngine.addHeat(0.004, 'Reckless Driving on Sidewalk');
           }
         } else {
-          // 2. ON-FOOT WALKING MODE
+          // 2. ON-FOOT WALKING MODE WITH SOLID COLLISION DETECTION
           vehicleEngine.update(dt, {}, (alertX, alertY) => {
             pedestrianEngine.alertNearbyCar(alertX, alertY);
           });
-          setVehicleSpeedMPH(0);
+          if (lastMphRef.current !== 0) {
+            lastMphRef.current = 0;
+            setVehicleSpeedMPH(0);
+          }
 
           let dx = 0;
           let dy = 0;
@@ -440,11 +505,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           let speed = 190;
           if (player.vehicle === 'BICYCLE') speed = 280;
 
-          let nextX = player.x + dx * speed * dt;
-          let nextY = player.y + dy * speed * dt;
-
-          nextX = Math.max(TILE_SIZE * 2, Math.min(MAP_WIDTH * TILE_SIZE - TILE_SIZE * 2, nextX));
-          nextY = Math.max(TILE_SIZE * 2, Math.min(MAP_HEIGHT * TILE_SIZE - TILE_SIZE * 2, nextY));
+          // Axis-separated solid collision resolution (Never walk into water or walls)
+          const moveX = dx * speed * dt;
+          const moveY = dy * speed * dt;
+          const res = collisionEngine.resolveMovement(player.x, player.y, moveX, moveY, 12, false);
 
           const isMoving = dx !== 0 || dy !== 0;
           let direction = player.direction;
@@ -454,8 +518,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             direction = dy > 0 ? 'down' : 'up';
           }
 
-          player.x = nextX;
-          player.y = nextY;
+          player.x = res.x;
+          player.y = res.y;
           player.direction = direction;
           player.isMoving = isMoving;
           if (isMoving) {
@@ -465,13 +529,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
         // Check nearest vehicle proximity for [F] prompt
         const nearestVeh = vehicleEngine.getNearestVehicle(player.x, player.y, 65);
-        setNearbyVehicle(nearestVeh);
+        if (nearestVeh?.id !== nearbyVehicleRef.current?.id) {
+          nearbyVehicleRef.current = nearestVeh;
+          setNearbyVehicle(nearestVeh);
+        }
 
         // Check Plaza Fountain proximity for Freedom Bell (at tileX 46, tileY 24)
         const fountainX = 46 * TILE_SIZE;
         const fountainY = 24 * TILE_SIZE;
         const distFountain = Math.hypot(player.x - fountainX, player.y - fountainY);
-        setIsNearFountain(distFountain < 75);
+        const nearFountain = distFountain < 75;
+        if (nearFountain !== isNearFountainRef.current) {
+          isNearFountainRef.current = nearFountain;
+          setIsNearFountain(nearFountain);
+        }
 
         // Check building proximity
         let foundBldg: BuildingEntrance | null = null;
@@ -484,18 +555,24 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             break;
           }
         }
-        setNearbyBuilding(foundBldg);
+        if (foundBldg?.id !== nearbyBuildingRef.current?.id) {
+          nearbyBuildingRef.current = foundBldg;
+          setNearbyBuilding(foundBldg);
+        }
 
         // Check NPC proximity
         let foundNpc: NPC | null = null;
-        for (const npc of npcs) {
+        for (const npc of npcsRef.current) {
           const dist = Math.hypot(player.x - npc.x, player.y - npc.y);
           if (dist < 55) {
             foundNpc = npc;
             break;
           }
         }
-        setNearbyNpc(foundNpc);
+        if (foundNpc?.id !== nearbyNpcRef.current?.id) {
+          nearbyNpcRef.current = foundNpc;
+          setNearbyNpc(foundNpc);
+        }
 
         // Check Street Props proximity
         let foundProp: StreetProp | null = null;
@@ -508,27 +585,30 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             break;
           }
         }
-        setNearbyStreetProp(foundProp);
+        if (foundProp?.id !== nearbyPropRef.current?.id) {
+          nearbyPropRef.current = foundProp;
+          setNearbyStreetProp(foundProp);
+        }
 
         // Check Collectibles
-        for (const item of collectibles) {
+        for (const item of collectiblesRef.current) {
           if (!item.isCollected) {
             const dist = Math.hypot(player.x - item.x, player.y - item.y);
             if (dist < 32) {
               item.isCollected = true;
               soundFx.playCoin();
               confetti({ particleCount: 35, spread: 45, origin: { y: 0.8 } });
-              state.cash += item.value;
-              state.totalXP += 25;
+              stateRef.current.cash += item.value;
+              stateRef.current.totalXP += 25;
               setBannerAlert(`🎉 ${item.title}: ${item.message}`);
-              onUpdateState({ ...state });
+              onUpdateState({ ...stateRef.current });
               setTimeout(() => setBannerAlert(null), 4000);
             }
           }
         }
 
         // NPC gentle wandering AI
-        for (const npc of npcs) {
+        for (const npc of npcsRef.current) {
           if (npc.isWandering) {
             if (Math.random() < 0.02) {
               const angle = Math.random() * Math.PI * 2;
@@ -549,36 +629,43 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
-      // Render World Map
+      // Smooth Camera Lerp Tracking (with GTA driving lookahead)
+      let targetCamX = player.x;
+      let targetCamY = player.y;
+
+      if (vehicleEngine.playerVehicle && Math.abs(vehicleEngine.playerVehicle.speed) > 100) {
+        const v = vehicleEngine.playerVehicle;
+        const lookAhead = Math.min(180, Math.abs(v.speed) * 0.35);
+        targetCamX += Math.cos(v.angle) * lookAhead;
+        targetCamY += Math.sin(v.angle) * lookAhead;
+      }
+
+      const lerpFactor = vehicleEngine.playerVehicle ? 0.08 : 0.14;
+      cameraRef.current.x += (targetCamX - cameraRef.current.x) * lerpFactor;
+      cameraRef.current.y += (targetCamY - cameraRef.current.y) * lerpFactor;
+
       const w = canvas.width;
       const h = canvas.height;
 
+      // Master Unified 2.5D World Renderer with Painter's Algorithm Y-Sorting
       renderWorldMap(
         ctx,
-        player.x,
-        player.y,
+        cameraRef.current.x,
+        cameraRef.current.y,
         w,
         h,
-        nearbyBuilding ? nearbyBuilding.id : null,
-        targetBuilding ? targetBuilding.id : null
-      );
-
-      renderEntities(
-        ctx,
+        nearbyBuildingRef.current ? nearbyBuildingRef.current.id : null,
+        targetBuildingRef.current ? targetBuildingRef.current.id : null,
         player,
-        npcs,
-        collectibles,
-        player.x,
-        player.y,
-        w,
-        h,
-        nearbyNpc ? nearbyNpc.id : null
+        npcsRef.current,
+        collectiblesRef.current,
+        nearbyNpcRef.current ? nearbyNpcRef.current.id : null
       );
 
       // Render Day/Night Atmosphere & Light Sources
       const lightSources = BUILDINGS.map((b) => ({
-        x: b.tileX * TILE_SIZE - player.x + w / 2,
-        y: b.tileY * TILE_SIZE - player.y + h / 2,
+        x: b.tileX * TILE_SIZE - cameraRef.current.x + w / 2,
+        y: b.tileY * TILE_SIZE - cameraRef.current.y + h / 2,
         radius: 120,
         color: b.color,
       }));
@@ -587,8 +674,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx,
         w,
         h,
-        w / 2,
-        h / 2,
+        player.x - cameraRef.current.x + w / 2,
+        player.y - cameraRef.current.y + h / 2,
         lightSources
       );
 
@@ -597,9 +684,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     animationId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationId);
-  }, [enteredBuilding, talkingNpc, nearbyBuilding, nearbyNpc, nearbyVehicle, npcs, collectibles, state, activeMinigame, showInventory, showCampaignModal, showFreedomBellModal, showLifeFocusModal, showLegacyModal, showPhone, isNearFountain, targetBuilding]);
+  }, [onUpdateState]);
 
-  // Click / Tap to walk on canvas
+  // Click / Tap to walk on canvas (respecting solid collisions and camera tracking)
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -607,20 +694,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const clickScreenX = e.clientX - rect.left;
     const clickScreenY = e.clientY - rect.top;
 
-    const worldClickX = clickScreenX - canvas.width / 2 + player.x;
-    const worldClickY = clickScreenY - canvas.height / 2 + player.y;
+    const worldClickX = clickScreenX - canvas.width / 2 + cameraRef.current.x;
+    const worldClickY = clickScreenY - canvas.height / 2 + cameraRef.current.y;
 
-    if (isNearFountain) {
+    if (isNearFountainRef.current) {
       setShowFreedomBellModal(true);
       return;
     }
-    if (nearbyBuilding) {
-      handleEnterBuilding(nearbyBuilding);
+    if (nearbyBuildingRef.current) {
+      handleEnterBuilding(nearbyBuildingRef.current);
       return;
     }
-    if (nearbyNpc) {
+    if (nearbyNpcRef.current) {
       soundFx.playTwistAlert();
-      setTalkingNpc(nearbyNpc);
+      setTalkingNpc(nearbyNpcRef.current);
       return;
     }
 
@@ -628,8 +715,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const dy = worldClickY - player.y;
     const dist = Math.hypot(dx, dy);
     if (dist > 10) {
-      player.x += (dx / dist) * Math.min(dist, 100);
-      player.y += (dy / dist) * Math.min(dist, 100);
+      const step = Math.min(dist, 100);
+      const res = collisionEngine.resolveMovement(
+        player.x,
+        player.y,
+        (dx / dist) * step,
+        (dy / dist) * step,
+        12,
+        false
+      );
+      player.x = res.x;
+      player.y = res.y;
       player.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
     }
   };

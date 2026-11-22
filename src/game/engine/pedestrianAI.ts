@@ -164,9 +164,10 @@ export class PedestrianEngine {
       p.x += p.dirX * p.speed * dt;
       p.y += p.dirY * p.speed * dt;
 
-      // Reverse direction at sidewalks end
+      // Reverse direction at sidewalks end (Never walk into ocean water!)
       const minX = 14 * TILE_SIZE;
-      const maxX = 86 * TILE_SIZE;
+      const isBoardwalk = p.y >= 23.5 * TILE_SIZE && p.y <= 28.5 * TILE_SIZE;
+      const maxX = isBoardwalk ? 91 * TILE_SIZE : 79 * TILE_SIZE;
       if (p.x < minX) {
         p.x = minX;
         p.dirX = 1;

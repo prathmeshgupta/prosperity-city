@@ -1,5 +1,6 @@
 import { TILE_SIZE, MAP_WIDTH, MAP_HEIGHT } from '../world/mapData';
 import { soundFx } from '../../audio/soundFx';
+import { collisionEngine } from './collisionEngine';
 
 export type VehicleType = 'SUPERCAR' | 'SEDAN' | 'POLICE' | 'TAXI' | 'VAN';
 
@@ -400,16 +401,23 @@ export class VehicleEngine {
         });
       }
 
-      // Apply velocity vector
-      let nextX = v.x + Math.cos(v.angle) * v.speed * dt;
-      let nextY = v.y + Math.sin(v.angle) * v.speed * dt;
+      // Apply velocity vector with solid physical collision detection
+      const forwardX = Math.cos(v.angle) * v.speed * dt;
+      const forwardY = Math.sin(v.angle) * v.speed * dt;
+      const res = collisionEngine.resolveMovement(v.x, v.y, forwardX, forwardY, 18, true);
 
-      // Keep within city roads & boundaries
-      nextX = Math.max(minRoadX, Math.min(maxRoadX, nextX));
-      nextY = Math.max(minRoadY, Math.min(maxRoadY, nextY));
+      if (res.collided) {
+        if (Math.abs(v.speed) > 90) {
+          soundFx.playCarCrash();
+        } else if (Math.abs(v.speed) > 30) {
+          soundFx.playTireScreech();
+        }
+        // Elastic recoil bounce
+        v.speed = -v.speed * 0.35;
+      }
 
-      v.x = nextX;
-      v.y = nextY;
+      v.x = res.x;
+      v.y = res.y;
 
       // Alert pedestrians if speeding or honking
       if (Math.abs(v.speed) > 280 && onPedestrianAlert) {
@@ -417,21 +425,21 @@ export class VehicleEngine {
       }
     }
 
-    // 2. Update AI Cruising Traffic
+    // 2. Update AI Cruising Traffic (Strictly constrained to asphalt roads, NEVER water or beach)
     for (const v of this.vehicles) {
       if (v.isPlayerOccupied || v.isParked) continue;
 
       if (v.laneAxis === 'H') {
         v.x += (v.laneDir || 1) * v.speed * dt;
         v.angle = v.laneDir === 1 ? 0 : Math.PI;
-        // Loop at road edges
-        if (v.laneDir === 1 && v.x > maxRoadX) v.x = minRoadX;
-        if (v.laneDir === -1 && v.x < minRoadX) v.x = maxRoadX;
+        // Loop at road edges (16 to 78, strictly road, never water or beach)
+        if (v.laneDir === 1 && v.x > 78 * TILE_SIZE) v.x = 16 * TILE_SIZE;
+        if (v.laneDir === -1 && v.x < 16 * TILE_SIZE) v.x = 78 * TILE_SIZE;
       } else if (v.laneAxis === 'V') {
         v.y += (v.laneDir || 1) * v.speed * dt;
         v.angle = v.laneDir === 1 ? Math.PI / 2 : -Math.PI / 2;
-        if (v.laneDir === 1 && v.y > maxRoadY) v.y = minRoadY;
-        if (v.laneDir === -1 && v.y < minRoadY) v.y = maxRoadY;
+        if (v.laneDir === 1 && v.y > 58 * TILE_SIZE) v.y = 14 * TILE_SIZE;
+        if (v.laneDir === -1 && v.y < 14 * TILE_SIZE) v.y = 58 * TILE_SIZE;
       }
     }
 
