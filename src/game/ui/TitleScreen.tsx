@@ -202,7 +202,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           <div className="lg:col-span-7 space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold tracking-wide">
               <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-              <span>THE 2D OPEN-WORLD FINANCIAL LIFE RPG</span>
+              <span>THE 3D OPEN-WORLD WEALTH METROPOLIS</span>
             </div>
 
             <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">

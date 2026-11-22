@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
 import { GameState } from '../../types/game';
 import { BUILDINGS, BuildingEntrance, TILE_SIZE, MAP_WIDTH, MAP_HEIGHT } from '../world/mapData';
 import { STREET_PROPS, StreetProp } from '../world/streetProps';
 import { INITIAL_NPCS, NPC } from '../entities/NPC';
 import { INITIAL_COLLECTIBLES, Collectible } from '../entities/Collectible';
-import { renderWorldMap } from './tilesetRenderer';
+import { ThreeCityEngine } from '../three/ThreeCityEngine';
 import { PlayerEntity } from './entityRenderer';
 import { collisionEngine } from './collisionEngine';
 import { RPGBuildingInterior } from '../ui/RPGBuildingInterior';
@@ -68,6 +69,44 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   onSwitchToExecutiveMode,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const threeEngineRef = useRef<ThreeCityEngine | null>(null);
+
+  // 3D Raycasting refs for click-to-move
+  const raycasterRef = useRef(new THREE.Raycaster());
+  const groundPlaneRef = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+  const mouseVecRef = useRef(new THREE.Vector2());
+  const planeIntersectRef = useRef(new THREE.Vector3());
+
+  // Camera Orbit Controls State
+  const isDraggingCamera = useRef<boolean>(false);
+  const lastMousePos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const hasDragged = useRef<boolean>(false);
+
+  // Initialize Three.js Hardware-Accelerated 3D Engine
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const engine = new ThreeCityEngine(canvas);
+    threeEngineRef.current = engine;
+
+    const handleResize = () => {
+      if (canvas && threeEngineRef.current) {
+        const width = canvas.clientWidth || window.innerWidth;
+        const height = canvas.clientHeight || window.innerHeight;
+        threeEngineRef.current.handleResize(width, height);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      engine.dispose();
+      threeEngineRef.current = null;
+    };
+  }, []);
 
   // Atmosphere engine instance (day/night cycle & weather)
   const atmosphereRef = useRef<WorldAtmosphere>(new WorldAtmosphere());
@@ -424,8 +463,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let animationId: number;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
 
     let lastTime = performance.now();
 
@@ -644,40 +681,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       cameraRef.current.x += (targetCamX - cameraRef.current.x) * lerpFactor;
       cameraRef.current.y += (targetCamY - cameraRef.current.y) * lerpFactor;
 
-      const w = canvas.width;
-      const h = canvas.height;
-
-      // Master Unified 2.5D World Renderer with Painter's Algorithm Y-Sorting
-      renderWorldMap(
-        ctx,
-        cameraRef.current.x,
-        cameraRef.current.y,
-        w,
-        h,
-        nearbyBuildingRef.current ? nearbyBuildingRef.current.id : null,
-        targetBuildingRef.current ? targetBuildingRef.current.id : null,
-        player,
-        npcsRef.current,
-        collectiblesRef.current,
-        nearbyNpcRef.current ? nearbyNpcRef.current.id : null
-      );
-
-      // Render Day/Night Atmosphere & Light Sources
-      const lightSources = BUILDINGS.map((b) => ({
-        x: b.tileX * TILE_SIZE - cameraRef.current.x + w / 2,
-        y: b.tileY * TILE_SIZE - cameraRef.current.y + h / 2,
-        radius: 120,
-        color: b.color,
-      }));
-
-      atmosphereRef.current.renderLighting(
-        ctx,
-        w,
-        h,
-        player.x - cameraRef.current.x + w / 2,
-        player.y - cameraRef.current.y + h / 2,
-        lightSources
-      );
+      // Master 3D WebGL Metropolis Renderer with Dynamic Shadows & Lighting
+      if (threeEngineRef.current) {
+        const isNight = atmosphereRef.current.timeOfDay === 'NIGHT';
+        threeEngineRef.current.render(
+          player,
+          npcsRef.current,
+          collectiblesRef.current,
+          dt,
+          time / 1000,
+          targetBuildingRef.current ? targetBuildingRef.current.id : null,
+          isNight
+        );
+      }
 
       animationId = requestAnimationFrame(loop);
     };
@@ -686,16 +702,47 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     return () => cancelAnimationFrame(animationId);
   }, [onUpdateState]);
 
-  // Click / Tap to walk on canvas (respecting solid collisions and camera tracking)
+  // 3D Camera Mouse Orbit & Zoom Controls
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Right click (2) or Left click (0) while holding Shift/Alt to orbit camera
+    if (e.button === 2 || (e.button === 0 && (e.shiftKey || e.altKey))) {
+      isDraggingCamera.current = true;
+      hasDragged.current = false;
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isDraggingCamera.current && threeEngineRef.current) {
+      const dx = e.clientX - lastMousePos.current.x;
+      const dy = e.clientY - lastMousePos.current.y;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        hasDragged.current = true;
+      }
+      threeEngineRef.current.cameraController.rotate(-dx * 0.006, -dy * 0.005);
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+    }
+  };
+
+  const handleMouseUp = () => {
+    isDraggingCamera.current = false;
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    if (threeEngineRef.current) {
+      threeEngineRef.current.cameraController.zoom(e.deltaY * 0.03);
+    }
+  };
+
+  // Click / Tap to walk on 3D canvas (via Raycasting onto ground plane)
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const clickScreenX = e.clientX - rect.left;
-    const clickScreenY = e.clientY - rect.top;
 
-    const worldClickX = clickScreenX - canvas.width / 2 + cameraRef.current.x;
-    const worldClickY = clickScreenY - canvas.height / 2 + cameraRef.current.y;
+    if (hasDragged.current) {
+      hasDragged.current = false;
+      return;
+    }
 
     if (isNearFountainRef.current) {
       setShowFreedomBellModal(true);
@@ -711,22 +758,38 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       return;
     }
 
-    const dx = worldClickX - player.x;
-    const dy = worldClickY - player.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist > 10) {
-      const step = Math.min(dist, 100);
-      const res = collisionEngine.resolveMovement(
-        player.x,
-        player.y,
-        (dx / dist) * step,
-        (dy / dist) * step,
-        12,
-        false
-      );
-      player.x = res.x;
-      player.y = res.y;
-      player.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
+    if (threeEngineRef.current) {
+      const rect = canvas.getBoundingClientRect();
+      mouseVecRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouseVecRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycasterRef.current.setFromCamera(mouseVecRef.current, threeEngineRef.current.cameraController.camera);
+      const hit = raycasterRef.current.ray.intersectPlane(groundPlaneRef.current, planeIntersectRef.current);
+      if (hit) {
+        // Map 3D coordinates back to collision world px (1 3D unit = 10 px)
+        const targetWorldX = hit.x * 10;
+        const targetWorldY = hit.z * 10;
+
+        const dx = targetWorldX - player.x;
+        const dy = targetWorldY - player.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 10) {
+          const step = Math.min(dist, 120);
+          const res = collisionEngine.resolveMovement(
+            player.x,
+            player.y,
+            (dx / dist) * step,
+            (dy / dist) * step,
+            12,
+            false
+          );
+          player.x = res.x;
+          player.y = res.y;
+          player.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
+          player.isMoving = true;
+          player.walkFrame += 1;
+        }
+      }
     }
   };
 
@@ -825,12 +888,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         </div>
       )}
 
-      {/* Main HTML5 Canvas */}
+      {/* Main 3D WebGL Canvas */}
       <canvas
         ref={canvasRef}
-        width={1000}
-        height={650}
         onClick={handleCanvasClick}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onWheel={handleWheel}
+        onContextMenu={(e) => e.preventDefault()}
         className="w-full h-full cursor-crosshair block"
       />
 
